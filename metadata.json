@@ -1,0 +1,7 @@
+{
+  "name": "GAMEON TELE",
+  "description": "Official telebirr SuperApp Game Center mini-app featuring category-driven game discovery, large banner-style horizontal carousels, instant free access, coin games, telebirr subscription entitlements, per-game national leaderboards, and 100+ scalable game catalog architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

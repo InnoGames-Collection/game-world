@@ -1,0 +1,98 @@
+# ==============================================================================
+# GAMEON TELE — Production Server Docker Compose Stack
+# Target: GCP Compute Engine VM (innoserver-serv001: 34.41.116.217)
+# Architecture: Tier-0 Enterprise Stack with cgroup limits and health canaries
+# ==============================================================================
+
+services:
+  # ── PostgreSQL 16 Enterprise Relational Store ────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: gameon-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gameon}
+      POSTGRES_USER: ${POSTGRES_USER:-gameon_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gameon_secure_prod_password_2026}
+    volumes:
+      - gameon_pgdata:/var/lib/postgresql/data
+      - ./db/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:5435:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gameon_app} -d ${POSTGRES_DB:-gameon}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Valkey 8.x Distributed High-Performance Cache ───────────────────────────
+  valkey:
+    image: valkey/valkey:8-alpine
+    container_name: gameon-valkey
+    restart: unless-stopped
+    command: ["valkey-server", "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:6385:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── GameON Tele Fastify API Monolith ───────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gameon-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8200
+      HOST: 0.0.0.0
+      DOMAIN: innopulseplatform.com
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-gameon_app}:${POSTGRES_PASSWORD:-gameon_secure_prod_password_2026}@postgres:5432/${POSTGRES_DB:-gameon}?sslmode=disable"
+      VALKEY_URL: "redis://valkey:6379"
+      JWT_SECRET: ${JWT_SECRET:-gameon-tele-super-secret-jwt-key-prod-2026}
+      GAME_TOKEN_SECRET: ${GAME_TOKEN_SECRET:-gameon-tele-anti-cheat-round-token-secret-prod-2026}
+      CRON_SECRET: ${CRON_SECRET:-gameon-cron-secret-prod-2026}
+      RATE_LIMIT_GENERAL: 60
+      RATE_LIMIT_OTP: 5
+      SMS_MODE: ${SMS_MODE:-mock}
+      SMSC_BASE_URL: ${SMSC_BASE_URL:-http://168.119.53.26:8484}
+      SMSC_API_KEY: ${SMSC_API_KEY:-sandbox-api-key}
+      SMSC_SERVICE_ID: ${SMSC_SERVICE_ID:-4}
+      SMSC_WEBHOOK_SECRET: ${SMSC_WEBHOOK_SECRET:-sandbox-webhook-secret}
+      DEV_OTP_ECHO: ${DEV_OTP_ECHO:-true}
+      TELEBIRR_MODE: ${TELEBIRR_MODE:-sandbox}
+      TELEBIRR_APP_KEY: ${TELEBIRR_APP_KEY:-}
+      TELEBIRR_APP_ID: ${TELEBIRR_APP_ID:-}
+      TELEBIRR_CHECKOUT_URL: ${TELEBIRR_CHECKOUT_URL:-https://telebirr.et/checkout}
+    ports:
+      - "127.0.0.1:8200:8200"
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8200/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  gameon_pgdata:
