@@ -313,6 +313,13 @@ export const EmojiIqGame: React.FC<EmojiIqGameProps> = ({ onClose, onGameComplet
         availableHints={playerStats.availableHints}
         onOpenStore={() => setShowStore(true)}
         onOpenSettings={() => setShowSettings(true)}
+        onBack={() => {
+          if (screen === 'HOME') {
+            if (onClose) onClose();
+          } else {
+            setScreen('HOME');
+          }
+        }}
         onUseHint={handleUseHint}
         showHintButton={screen === 'PLAYING'}
         hintsDisabled={eliminatedOptions.length >= 2}

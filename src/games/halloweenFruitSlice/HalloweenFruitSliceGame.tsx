@@ -104,7 +104,15 @@ export const HalloweenFruitSliceGame: React.FC<HalloweenFruitSliceGameProps> = (
   useEffect(() => {
     halloweenAudio.setEnabled(isAudioEnabled);
     setIsMuted(!isAudioEnabled);
+    halloweenAudio.stopBgm();
   }, [isAudioEnabled]);
+
+  // Ensure BGM is never playing in menu or selection screens
+  useEffect(() => {
+    if (gameState === 'MENU' || gameState === 'LEVEL_SELECT' || gameState === 'TUTORIAL') {
+      halloweenAudio.stopBgm();
+    }
+  }, [gameState]);
 
   // Clean up RAF and sounds on unmount
   useEffect(() => {

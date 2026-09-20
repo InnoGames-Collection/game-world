@@ -6,7 +6,10 @@
 export type CrazyColor = 'pink' | 'cyan' | 'yellow' | 'purple';
 
 export type ShapeType =
+  | 'circle'
+  | 'circle_ring'
   | 'square'
+  | 'rounded_square'
   | 'rotated_square'
   | 'rectangle'
   | 'diamond'
@@ -18,7 +21,7 @@ export type ShapeType =
   | 'triangle'
   | 'cross'
   | 'hexagon'
-  | 'circle_ring'
+  | 'octagon'
   | 'double_ring'
   | 'concentric_square'
   | 'horizontal_bars'
@@ -95,12 +98,33 @@ export interface LevelDefinition {
   starThresholds: [number, number, number, number, number]; // 1 to 5 star scores
 }
 
+export interface LevelScoreBreakdown {
+  basePoints: number;
+  speedBonus: number;
+  streakBonus: number;
+  shapeBonus: number;
+  accuracyBonus: number;
+  levelMultiplier: number;
+  accuracyPercent: number;
+  passesCompleted: number;
+  finalLevelScore: number;
+}
+
 export interface CrazyColorsSaveData {
   highestUnlockedLevel: number; // 1 to 40
   stars: Record<number, number>; // levelId -> 1 to 5
-  bestScores: Record<number, number>; // levelId -> score
+  bestScores: Record<number, number>; // levelId -> best valid score
+  totalCompetitiveScore: number; // Cumulative sum of best scores across all completed levels
   soundEnabled: boolean;
   musicEnabled: boolean;
+}
+
+export function computeTotalCompetitiveScore(bestScores: Record<number, number>): number {
+  if (!bestScores) return 0;
+  return Object.values(bestScores).reduce((sum, s) => {
+    const val = typeof s === 'number' && !isNaN(s) ? s : 0;
+    return sum + val;
+  }, 0);
 }
 
 export interface Particle {

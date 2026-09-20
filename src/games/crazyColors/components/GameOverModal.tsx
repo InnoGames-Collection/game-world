@@ -12,6 +12,7 @@ interface GameOverModalProps {
   levelId: number;
   score: number;
   bestScore: number;
+  totalCompetitiveScore?: number;
   onRetry: () => void;
   onOpenLevels: () => void;
   onHome: () => void;
@@ -21,6 +22,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   levelId,
   score,
   bestScore,
+  totalCompetitiveScore,
   onRetry,
   onOpenLevels,
   onHome,
@@ -54,10 +56,22 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             <span className="font-black text-lg text-white font-mono">{score.toLocaleString()}</span>
           </div>
 
+          {totalCompetitiveScore !== undefined && (
+            <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/10">
+              <span className="font-semibold text-cyan-300/90 flex items-center gap-1">
+                <Trophy className="w-3.5 h-3.5 text-cyan-400" />
+                TOTAL COMPETITIVE
+              </span>
+              <span className="font-black text-sm text-cyan-300 font-mono">
+                {totalCompetitiveScore.toLocaleString()}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between text-xs pt-1.5 border-t border-white/10">
             <span className="font-semibold text-white/60 flex items-center gap-1">
               <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-              BEST RECORD
+              LEVEL RECORD
             </span>
             <span className="font-bold text-sm text-yellow-300 font-mono">
               {bestScore.toLocaleString()}

@@ -362,6 +362,27 @@ export function findMatches(grid: Cell[][]): MatchResult {
     }
   });
 
+  // Detonate any special pieces (striped, bomb) that were caught in matches
+  const detonationQueue = Array.from(matchedSet);
+  const processedSpecials = new Set<string>();
+
+  while (detonationQueue.length > 0) {
+    const key = detonationQueue.shift()!;
+    const [cx, cy] = key.split(',').map(Number);
+    const fruit = grid[cy]?.[cx]?.fruit;
+    if (fruit?.special && fruit.special !== 'none' && fruit.special !== 'rainbow' && !processedSpecials.has(key)) {
+      processedSpecials.add(key);
+      const extraBlast = activateSpecialPiece(grid, cx, cy, fruit.special);
+      extraBlast.forEach(([bx, by]) => {
+        const bKey = `${bx},${by}`;
+        if (!matchedSet.has(bKey)) {
+          matchedSet.add(bKey);
+          detonationQueue.push(bKey);
+        }
+      });
+    }
+  }
+
   const matchedCells: [number, number][] = Array.from(matchedSet).map((s) => {
     const [x, y] = s.split(',').map(Number);
     return [x, y];

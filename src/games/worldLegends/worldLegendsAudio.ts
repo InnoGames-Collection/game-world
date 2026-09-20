@@ -333,6 +333,13 @@ class WorldLegendsAudioSynthesizer {
   }
 
   /**
+   * Subtle button/tile tap sound
+   */
+  public playTileTap() {
+    this.playTileConnect(0);
+  }
+
+  /**
    * Game Over tournament conclusion tone
    */
   public playGameOver() {

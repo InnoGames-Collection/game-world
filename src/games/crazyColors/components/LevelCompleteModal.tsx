@@ -6,11 +6,14 @@
 import React from 'react';
 import { ArrowRight, RotateCcw, Grid, Star, Trophy, Sparkles, Award } from 'lucide-react';
 import { crazyColorsAudio } from '../audioEngine';
+import { LevelScoreBreakdown } from '../types';
 
 interface LevelCompleteModalProps {
   levelId: number;
   score: number;
   bestScore: number;
+  totalCompetitiveScore: number;
+  scoreBreakdown?: LevelScoreBreakdown;
   starsEarned: number; // 1 to 5
   onNextLevel: () => void;
   onReplay: () => void;
@@ -21,6 +24,8 @@ export const LevelCompleteModal: React.FC<LevelCompleteModalProps> = ({
   levelId,
   score,
   bestScore,
+  totalCompetitiveScore,
+  scoreBreakdown,
   starsEarned,
   onNextLevel,
   onReplay,
@@ -58,7 +63,7 @@ export const LevelCompleteModal: React.FC<LevelCompleteModalProps> = ({
         )}
 
         {/* 1 to 5 Stars Showcase */}
-        <div className="flex items-center justify-center gap-2 mb-5">
+        <div className="flex items-center justify-center gap-2 mb-4">
           {[1, 2, 3, 4, 5].map((starIndex) => {
             const hasStar = starIndex <= starsEarned;
             return (
@@ -81,21 +86,38 @@ export const LevelCompleteModal: React.FC<LevelCompleteModalProps> = ({
         </div>
 
         {/* Score Breakdown Card */}
-        <div className="w-full bg-black/40 border border-white/10 rounded-2xl p-3.5 mb-5 space-y-1.5">
+        <div className="w-full bg-black/40 border border-white/10 rounded-2xl p-3.5 mb-4 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-white/60">LEVEL SCORE</span>
             <span className="font-black text-lg text-white font-mono">{score.toLocaleString()}</span>
           </div>
 
           <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
+            <span className="font-semibold text-cyan-300/90 flex items-center gap-1">
+              <Trophy className="w-3.5 h-3.5 text-cyan-400" />
+              TOTAL COMPETITIVE
+            </span>
+            <span className="font-black text-sm text-cyan-300 font-mono">
+              {totalCompetitiveScore.toLocaleString()}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
             <span className="font-semibold text-white/60 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
-              BEST RECORD
+              LEVEL RECORD
             </span>
             <span className="font-bold text-sm text-yellow-300 font-mono">
               {bestScore.toLocaleString()}
             </span>
           </div>
+
+          {scoreBreakdown && (
+            <div className="text-[10px] text-white/50 pt-1 border-t border-white/5 flex items-center justify-between font-mono">
+              <span>ACCURACY: {scoreBreakdown.accuracyPercent}%</span>
+              <span>MULT: {scoreBreakdown.levelMultiplier.toFixed(2)}x</span>
+            </div>
+          )}
 
           {isNewBest && (
             <div className="text-[10px] font-black text-center text-emerald-400 uppercase tracking-widest pt-1">

@@ -47,8 +47,6 @@ class HalloweenAudioEngine {
 
     if (!val) {
       this.stopBgm();
-    } else {
-      this.startBgm();
     }
   }
 

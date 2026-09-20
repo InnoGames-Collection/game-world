@@ -1,674 +1,347 @@
 /**
  * Crazy Colors 40-Level Championship Campaign
- * Progressive difficulty from Hard (Level 1) to Final Challenge (Level 40).
- * Every level features finite obstacles, diverse geometry, rotation parameters, and star ratings.
+ * Progressive competitive difficulty from Level 1 (Hard, 10 color passes) to Level 40 (Final Challenge, 30 passes).
+ * Every level features finite obstacles, diverse geometry (including Circle, Rounded Square, Octagon, Star, Diamond, etc.),
+ * rotations, oscillations, and calibrated star thresholds matching competitive scoring.
  */
 
 import { LevelDefinition, CrazyColor, ShapeType } from './types';
 
-export const CRAZY_COLORS_LEVELS: LevelDefinition[] = [
-  // -------------------------------------------------------------------------
-  // TIER 1: HARD (LEVELS 1 - 5) - High initial challenge requiring true timing
-  // -------------------------------------------------------------------------
+interface ObstacleDef {
+  shapeType: ShapeType;
+  rotationSpeed: number; // rad/s
+  scale?: number;
+  oscillationX?: { amplitude: number; speed: number };
+}
+
+// 4-tier difficulty categories
+const TIER_NAMES: LevelDefinition['difficulty'][] = [
+  'hard',
+  'very_hard',
+  'very_hard+',
+  'expert',
+  'expert+',
+  'extreme',
+  'master',
+  'master+',
+  'final_challenge',
+];
+
+const LEVEL_THEMES: Array<{
+  title: string;
+  description: string;
+  startColor: CrazyColor;
+  shapes: ShapeType[];
+}> = [
+  // 1-5: TIER 1 - HARD (10 to 18 passes)
   {
-    id: 1,
-    title: 'Diamond Gateway',
-    difficulty: 'hard',
-    description: 'Time your bounces through 3 rotating diamond squares with distinct colored segments.',
+    title: 'Circle & Diamond Gateway',
+    description: 'Master the 10-pass introductory championship course featuring vibrant circles, rounded squares, and diamonds.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'rotated_square', rotationSpeed: 1.35, scale: 1.0 },
-      { shapeType: 'rotated_square', rotationSpeed: -1.45, scale: 1.0 },
-      { shapeType: 'rotated_square', rotationSpeed: 1.55, scale: 1.0 },
-    ],
-    starThresholds: [200, 350, 500, 650, 800],
+    shapes: ['circle', 'rotated_square', 'circle_ring', 'square', 'rounded_square', 'diamond', 'circle', 'triangle', 'rounded_square', 'circle_ring'],
   },
   {
-    id: 2,
     title: 'Open U-Corridor',
-    difficulty: 'hard',
-    description: 'Pass through 3 open U-shapes rotating with offset phases.',
+    description: '12 rotating gates including open U-shapes, circles, and rounded squares with offset phases.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'u_shape', rotationSpeed: 1.4, scale: 1.05 },
-      { shapeType: 'open_square', rotationSpeed: -1.5, scale: 1.05 },
-      { shapeType: 'u_shape', rotationSpeed: 1.6, scale: 1.05 },
-    ],
-    starThresholds: [250, 400, 550, 750, 900],
+    shapes: ['u_shape', 'circle', 'open_square', 'diamond', 'rounded_square', 'rotated_square', 'circle_ring', 'u_shape', 'triangle', 'square', 'circle', 'rounded_square'],
   },
   {
-    id: 3,
-    title: 'Neon Chevrons',
-    difficulty: 'hard',
-    description: 'Clear through high-tension angled V-shaped chevrons.',
+    title: 'Neon Chevrons & Rings',
+    description: '14 intense obstacles featuring sharp V-chevrons, circles, and diamond barriers.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'v_shape', rotationSpeed: 1.45, scale: 1.0 },
-      { shapeType: 'inverted_v', rotationSpeed: -1.5, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: 1.6, scale: 1.0 },
-    ],
-    starThresholds: [250, 420, 600, 800, 950],
+    shapes: ['v_shape', 'circle', 'inverted_v', 'rounded_square', 'diamond', 'circle_ring', 'triangle', 'v_shape', 'rotated_square', 'inverted_v', 'circle', 'rectangle', 'u_shape', 'rounded_square'],
   },
   {
-    id: 4,
-    title: 'Chromatic Ring',
-    difficulty: 'hard',
-    description: 'Navigate through circular 4-arc neon rings rotating clockwise and counter-clockwise.',
+    title: 'Hexagonal Vault',
+    description: '16 diverse geometric barriers incorporating 6-segment hexagons, circles, and rectangles.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'circle_ring', rotationSpeed: 1.5, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: -1.6, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: 1.7, scale: 1.05 },
-    ],
-    starThresholds: [300, 500, 700, 900, 1100],
+    shapes: ['circle_ring', 'rounded_square', 'hexagon', 'diamond', 'circle', 'open_square', 'triangle', 'c_shape', 'rectangle', 'circle_ring', 'rotated_square', 'v_shape', 'hexagon', 'circle', 'rounded_square', 'diamond'],
   },
   {
-    id: 5,
-    title: 'Delta Triangles',
-    difficulty: 'hard',
-    description: 'Equilateral triangles rotate with acute timing windows.',
+    title: 'Octagonal Crossfire',
+    description: '18 high-intensity obstacles featuring octagons, 4-arm crosses, and double concentric rings.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'triangle', rotationSpeed: 1.55, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -1.65, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: 1.75, scale: 1.0 },
-      { shapeType: 'rotated_square', rotationSpeed: -1.6, scale: 1.0 },
-    ],
-    starThresholds: [350, 600, 850, 1100, 1300],
+    shapes: ['octagon', 'circle', 'cross', 'rounded_square', 'hexagon', 'diamond', 'circle_ring', 'octagon', 'v_shape', 'inverted_v', 'square', 'circle', 'triangle', 'double_ring', 'c_shape', 'cross', 'rounded_square', 'circle_ring'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 2: VERY HARD (LEVELS 6 - 10)
-  // -------------------------------------------------------------------------
+  // 6-10: TIER 2 - VERY HARD (18 to 22 passes)
   {
-    id: 6,
-    title: 'Rectangular Vault',
-    difficulty: 'very_hard',
-    description: 'Elongated rectangular gates rotate with varying speed.',
+    title: 'Rectangular Pulse',
+    description: '18 elongated gates and rotating circle arcs with sudden rhythm shifts.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'rectangle', rotationSpeed: 1.6, scale: 1.0 },
-      { shapeType: 'u_shape', rotationSpeed: -1.7, scale: 1.0 },
-      { shapeType: 'rectangle', rotationSpeed: 1.8, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: -1.75, scale: 1.0 },
-    ],
-    starThresholds: [400, 700, 950, 1200, 1450],
+    shapes: ['rectangle', 'circle', 'u_shape', 'rounded_square', 'circle_ring', 'diamond', 'hexagon', 'octagon', 'rectangle', 'circle', 'triangle', 'rotated_square', 'v_shape', 'circle_ring', 'cross', 'rounded_square', 'rectangle', 'circle'],
   },
   {
-    id: 7,
-    title: 'Inverted Chevrons',
-    difficulty: 'very_hard',
-    description: 'Sharp inverted V obstacles with tighter entry clearances.',
+    title: 'Inverted Chevrons & Octagons',
+    description: '20 sharp inverted chevrons and octagonal rings with tighter entry clearances.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'inverted_v', rotationSpeed: 1.7, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: -1.75, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: 1.8, scale: 1.0 },
-      { shapeType: 'inverted_v', rotationSpeed: -1.85, scale: 1.0 },
-    ],
-    starThresholds: [420, 720, 1000, 1250, 1500],
+    shapes: ['inverted_v', 'circle', 'v_shape', 'octagon', 'diamond', 'rounded_square', 'circle_ring', 'inverted_v', 'hexagon', 'triangle', 'circle', 'v_shape', 'square', 'octagon', 'rounded_square', 'circle_ring', 'cross', 'diamond', 'inverted_v', 'circle'],
   },
   {
-    id: 8,
     title: 'Curved C-Locks',
-    difficulty: 'very_hard',
-    description: 'Open C-shapes rotating with sudden directional shifts.',
+    description: '20 open C-shapes, circles, and diamond barriers with oscillating patterns.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'c_shape', rotationSpeed: 1.75, scale: 1.05 },
-      { shapeType: 'triangle', rotationSpeed: -1.8, scale: 1.0 },
-      { shapeType: 'c_shape', rotationSpeed: 1.85, scale: 1.05 },
-      { shapeType: 'rotated_square', rotationSpeed: -1.9, scale: 1.0 },
-    ],
-    starThresholds: [450, 750, 1050, 1300, 1550],
+    shapes: ['c_shape', 'circle', 'triangle', 'rounded_square', 'c_shape', 'rotated_square', 'hexagon', 'circle_ring', 'diamond', 'octagon', 'c_shape', 'circle', 'cross', 'rounded_square', 'v_shape', 'circle_ring', 'triangle', 'c_shape', 'double_ring', 'circle'],
   },
   {
-    id: 9,
-    title: 'Neon Crossfire',
-    difficulty: 'very_hard',
-    description: 'Cross obstacles with 4 radiant colored arms spinning across the lane.',
+    title: 'Neon Crossfire Array',
+    description: '22 spinning neon cross arms and concentric geometries requiring rapid color recognition.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'cross', rotationSpeed: 1.8, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: -1.85, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 1.9, scale: 1.05 },
-      { shapeType: 'rectangle', rotationSpeed: -1.85, scale: 1.0 },
-    ],
-    starThresholds: [480, 800, 1100, 1400, 1650],
+    shapes: ['cross', 'circle_ring', 'circle', 'rounded_square', 'rectangle', 'octagon', 'cross', 'diamond', 'triangle', 'circle', 'hexagon', 'v_shape', 'cross', 'circle_ring', 'rounded_square', 'concentric_square', 'inverted_v', 'circle', 'octagon', 'cross', 'diamond', 'circle'],
   },
   {
-    id: 10,
-    title: 'Concentric Rings',
-    difficulty: 'very_hard',
-    description: 'Double concentric rings spinning in opposite directions simultaneously!',
+    title: 'Concentric Ring Gauntlet',
+    description: '22 dual concentric rings and high-speed polygon gates spinning in counter-rotation.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'double_ring', rotationSpeed: 1.75, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: -1.85, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: 1.9, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: -1.95, scale: 1.0 },
-    ],
-    starThresholds: [500, 850, 1200, 1500, 1800],
+    shapes: ['double_ring', 'circle', 'diamond', 'rounded_square', 'concentric_square', 'v_shape', 'octagon', 'circle_ring', 'double_ring', 'triangle', 'circle', 'cross', 'hexagon', 'rounded_square', 'double_ring', 'inverted_v', 'circle', 'star_polygon', 'diamond', 'octagon', 'double_ring', 'circle'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 3: VERY HARD+ (LEVELS 11 - 15)
-  // -------------------------------------------------------------------------
+  // 11-15: TIER 3 - VERY HARD+ (22 passes)
   {
-    id: 11,
-    title: 'Hexagonal Prism',
-    difficulty: 'very_hard+',
-    description: '6-segment hexagonal barriers with rapid color rotation.',
+    title: 'Hexagonal Prisms',
+    description: '22 six-segment prisms and circular gates with accelerated orbital rotation.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'hexagon', rotationSpeed: 1.85, scale: 1.05 },
-      { shapeType: 'triangle', rotationSpeed: -1.9, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 1.95, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: -2.0, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 2.05, scale: 1.05 },
-    ],
-    starThresholds: [550, 950, 1300, 1650, 1950],
+    shapes: ['hexagon', 'circle', 'triangle', 'rounded_square', 'hexagon', 'circle_ring', 'octagon', 'diamond', 'hexagon', 'v_shape', 'cross', 'circle', 'concentric_square', 'rounded_square', 'hexagon', 'double_ring', 'inverted_v', 'circle_ring', 'octagon', 'hexagon', 'diamond', 'circle'],
   },
   {
-    id: 12,
-    title: 'Dual Nested Squares',
-    difficulty: 'very_hard+',
-    description: 'Nested inner and outer squares rotating with phase shifts.',
+    title: 'Nested Squares Matrix',
+    description: '22 nested inner and outer squares rotating with rapid phase shifts.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'concentric_square', rotationSpeed: 1.85, scale: 1.0 },
-      { shapeType: 'u_shape', rotationSpeed: -1.95, scale: 1.05 },
-      { shapeType: 'concentric_square', rotationSpeed: 2.0, scale: 1.0 },
-      { shapeType: 'inverted_v', rotationSpeed: -2.05, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: 2.1, scale: 1.0 },
-    ],
-    starThresholds: [600, 1000, 1400, 1750, 2100],
+    shapes: ['concentric_square', 'circle', 'u_shape', 'rounded_square', 'concentric_square', 'inverted_v', 'octagon', 'circle_ring', 'concentric_square', 'triangle', 'cross', 'circle', 'hexagon', 'diamond', 'concentric_square', 'v_shape', 'circle_ring', 'rounded_square', 'double_ring', 'concentric_square', 'circle', 'star_polygon'],
   },
   {
-    id: 13,
-    title: 'Star Polygons',
-    difficulty: 'very_hard+',
-    description: '8-pointed star polygons with serrated neon perimeter segments.',
+    title: 'Star Polygon Nebula',
+    description: '22 eight-pointed stars and octagons with sharp perimeter segments.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'star_polygon', rotationSpeed: 1.9, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -2.0, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: 2.05, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: -2.1, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: 2.15, scale: 1.0 },
-    ],
-    starThresholds: [650, 1100, 1500, 1850, 2250],
+    shapes: ['star_polygon', 'circle', 'cross', 'rounded_square', 'star_polygon', 'diamond', 'octagon', 'circle_ring', 'star_polygon', 'hexagon', 'triangle', 'circle', 'concentric_square', 'v_shape', 'star_polygon', 'double_ring', 'rounded_square', 'inverted_v', 'circle_ring', 'star_polygon', 'octagon', 'circle'],
   },
   {
-    id: 14,
-    title: 'Swaying Crossway',
-    difficulty: 'very_hard+',
-    description: 'Obstacles oscillate horizontally while rotating.',
+    title: 'Oscillating Diamond Drift',
+    description: '22 diamonds and circular barriers floating with horizontal harmonic sway.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'circle_ring', rotationSpeed: 1.95, scale: 1.0, oscillationX: { amplitude: 35, speed: 1.8 } },
-      { shapeType: 'rotated_square', rotationSpeed: -2.05, scale: 1.0, oscillationX: { amplitude: 30, speed: 2.0 } },
-      { shapeType: 'double_ring', rotationSpeed: 2.1, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: -2.15, scale: 1.0, oscillationX: { amplitude: 35, speed: 2.2 } },
-      { shapeType: 'hexagon', rotationSpeed: 2.2, scale: 1.05 },
-    ],
-    starThresholds: [700, 1150, 1600, 2000, 2400],
+    shapes: ['diamond', 'circle', 'rectangle', 'rounded_square', 'octagon', 'circle_ring', 'diamond', 'v_shape', 'cross', 'circle', 'hexagon', 'concentric_square', 'diamond', 'inverted_v', 'triangle', 'double_ring', 'rounded_square', 'diamond', 'circle_ring', 'octagon', 'star_polygon', 'circle'],
   },
   {
-    id: 15,
-    title: 'Chamber of Trials',
-    difficulty: 'very_hard+',
-    description: 'Five distinct geometric obstacles in rapid continuous succession.',
+    title: 'Crosshair Synchrony',
+    description: '22 spinning 4-point crosshairs paired with concentric rings.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'triangle', rotationSpeed: 2.0, scale: 1.0 },
-      { shapeType: 'open_square', rotationSpeed: -2.1, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: 2.15, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -2.2, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: 2.25, scale: 1.0 },
-    ],
-    starThresholds: [750, 1250, 1700, 2150, 2550],
+    shapes: ['cross', 'circle', 'double_ring', 'rounded_square', 'octagon', 'circle_ring', 'cross', 'diamond', 'triangle', 'circle', 'concentric_square', 'v_shape', 'cross', 'hexagon', 'rounded_square', 'inverted_v', 'circle_ring', 'cross', 'star_polygon', 'circle', 'octagon', 'double_ring'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 4: EXPERT (LEVELS 16 - 20)
-  // -------------------------------------------------------------------------
+  // 16-20: TIER 4 - EXPERT (24 passes)
   {
-    id: 16,
-    title: 'Velocity Diamonds',
-    difficulty: 'expert',
-    description: 'High-speed diamond gates with tight color clearance.',
+    title: 'Double Trouble Rings',
+    description: '24 counter-rotating dual rings and rapid geometric gates.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'diamond', rotationSpeed: 2.2, scale: 1.0 },
-      { shapeType: 'rectangle', rotationSpeed: -2.3, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: 2.35, scale: 1.0 },
-      { shapeType: 'inverted_v', rotationSpeed: -2.4, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: 2.45, scale: 1.0 },
-    ],
-    starThresholds: [800, 1350, 1850, 2300, 2700],
+    shapes: ['double_ring', 'circle', 'diamond', 'rounded_square', 'double_ring', 'v_shape', 'octagon', 'circle_ring', 'cross', 'hexagon', 'circle', 'concentric_square', 'double_ring', 'triangle', 'rounded_square', 'inverted_v', 'star_polygon', 'circle_ring', 'double_ring', 'octagon', 'circle', 'cross', 'diamond', 'double_ring'],
   },
   {
-    id: 17,
-    title: 'Twin Vortex',
-    difficulty: 'expert',
-    description: 'Dual double-ring vortexes paired with sharp chevrons.',
+    title: 'Acute Delta Array',
+    description: '24 razor-sharp rotating equilateral triangles and high-speed circles.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'double_ring', rotationSpeed: 2.25, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: -2.35, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 2.4, scale: 1.0 },
-      { shapeType: 'c_shape', rotationSpeed: -2.45, scale: 1.05 },
-      { shapeType: 'hexagon', rotationSpeed: 2.5, scale: 1.05 },
-    ],
-    starThresholds: [850, 1400, 1950, 2450, 2850],
+    shapes: ['triangle', 'circle', 'octagon', 'rounded_square', 'triangle', 'cross', 'circle_ring', 'diamond', 'hexagon', 'v_shape', 'circle', 'triangle', 'concentric_square', 'inverted_v', 'rounded_square', 'double_ring', 'triangle', 'star_polygon', 'circle_ring', 'octagon', 'circle', 'cross', 'diamond', 'triangle'],
   },
   {
-    id: 18,
-    title: 'Hexa-Star Matrix',
-    difficulty: 'expert',
-    description: 'Alternating hexagons and star polygons spinning at breakneck velocity.',
+    title: 'Concentric Vortex',
+    description: '24 alternating nested squares and double rings testing spatial prediction.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'hexagon', rotationSpeed: 2.3, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: -2.4, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 2.45, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: -2.5, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: 2.55, scale: 1.0 },
-    ],
-    starThresholds: [900, 1500, 2050, 2550, 3000],
+    shapes: ['concentric_square', 'circle', 'double_ring', 'rounded_square', 'octagon', 'circle_ring', 'concentric_square', 'diamond', 'cross', 'circle', 'hexagon', 'star_polygon', 'concentric_square', 'v_shape', 'rounded_square', 'inverted_v', 'circle_ring', 'double_ring', 'circle', 'octagon', 'triangle', 'concentric_square', 'cross', 'circle'],
   },
   {
-    id: 19,
-    title: 'Acute Precision',
-    difficulty: 'expert',
-    description: 'Acute triangles and inverted chevrons with oscillating drift.',
+    title: 'Quantum Octagon Field',
+    description: '24 octagonal chambers spinning in high synchronization.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'triangle', rotationSpeed: 2.35, scale: 1.0, oscillationX: { amplitude: 35, speed: 2.0 } },
-      { shapeType: 'inverted_v', rotationSpeed: -2.45, scale: 1.0, oscillationX: { amplitude: 35, speed: 2.2 } },
-      { shapeType: 'concentric_square', rotationSpeed: 2.5, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -2.55, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: 2.6, scale: 1.0 },
-    ],
-    starThresholds: [950, 1550, 2150, 2650, 3150],
+    shapes: ['octagon', 'circle', 'star_polygon', 'rounded_square', 'octagon', 'cross', 'circle_ring', 'diamond', 'double_ring', 'hexagon', 'circle', 'octagon', 'concentric_square', 'v_shape', 'rounded_square', 'inverted_v', 'circle_ring', 'triangle', 'octagon', 'circle', 'cross', 'star_polygon', 'diamond', 'octagon'],
   },
   {
-    id: 20,
-    title: 'Crossfire Gauntlet',
-    difficulty: 'expert',
-    description: 'Fast spinning crosses combined with nested geometric boxes.',
+    title: 'Expert Tier Apex',
+    description: '24 pinnacle expert obstacles requiring flawless color matching and rapid bounce control.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'cross', rotationSpeed: 2.4, scale: 1.05 },
-      { shapeType: 'concentric_square', rotationSpeed: -2.5, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 2.55, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: -2.6, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: 2.65, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: -2.7, scale: 1.0 },
-    ],
-    starThresholds: [1000, 1650, 2250, 2800, 3300],
+    shapes: ['star_polygon', 'circle', 'double_ring', 'rounded_square', 'concentric_square', 'octagon', 'circle_ring', 'cross', 'hexagon', 'diamond', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'star_polygon', 'circle_ring', 'octagon', 'cross', 'circle', 'concentric_square', 'triangle', 'diamond', 'star_polygon'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 5: EXPERT+ (LEVELS 21 - 25)
-  // -------------------------------------------------------------------------
+  // 21-25: TIER 5 - EXPERT+ (24 passes)
   {
-    id: 21,
-    title: 'Cyclone Arcs',
-    difficulty: 'expert+',
-    description: 'High-speed circle rings paired with oscillating chevron bars.',
+    title: 'Harmonic Drift Nexus',
+    description: '24 obstacles with wide lateral oscillations and variable angular velocities.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'circle_ring', rotationSpeed: 2.5, scale: 1.05 },
-      { shapeType: 'v_shape', rotationSpeed: -2.6, scale: 1.0, oscillationX: { amplitude: 40, speed: 2.4 } },
-      { shapeType: 'circle_ring', rotationSpeed: 2.65, scale: 1.05 },
-      { shapeType: 'inverted_v', rotationSpeed: -2.7, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: 2.75, scale: 1.0 },
-      { shapeType: 'rectangle', rotationSpeed: -2.8, scale: 1.0 },
-    ],
-    starThresholds: [1100, 1750, 2400, 2950, 3500],
+    shapes: ['circle', 'diamond', 'octagon', 'rounded_square', 'double_ring', 'circle_ring', 'cross', 'hexagon', 'concentric_square', 'star_polygon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'octagon', 'cross', 'circle_ring', 'double_ring', 'diamond', 'circle', 'triangle', 'star_polygon', 'concentric_square', 'circle'],
   },
   {
-    id: 22,
-    title: 'Dual Ring Orbit',
-    difficulty: 'expert+',
-    description: 'Back-to-back double ring chambers with counter-rotating speed.',
+    title: 'Prismatic Hex Gauntlet',
+    description: '24 multi-segment hexagonal and octagonal gates demanding acute split-second timing.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'double_ring', rotationSpeed: 2.55, scale: 1.0 },
-      { shapeType: 'open_square', rotationSpeed: -2.65, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 2.7, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -2.75, scale: 1.05 },
-      { shapeType: 'hexagon', rotationSpeed: 2.8, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: -2.85, scale: 1.0 },
-    ],
-    starThresholds: [1150, 1850, 2500, 3100, 3650],
+    shapes: ['hexagon', 'circle', 'octagon', 'rounded_square', 'hexagon', 'cross', 'circle_ring', 'diamond', 'star_polygon', 'double_ring', 'circle', 'hexagon', 'concentric_square', 'v_shape', 'rounded_square', 'inverted_v', 'circle_ring', 'octagon', 'hexagon', 'circle', 'cross', 'diamond', 'star_polygon', 'hexagon'],
   },
   {
-    id: 23,
-    title: 'Swaying Starburst',
-    difficulty: 'expert+',
-    description: 'Star polygons swaying across the screen with synchronized diamonds.',
+    title: 'Dual Chevron Storm',
+    description: '24 alternating V-chevrons and high-speed circular rings.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'star_polygon', rotationSpeed: 2.6, scale: 1.0, oscillationX: { amplitude: 42, speed: 2.5 } },
-      { shapeType: 'rotated_square', rotationSpeed: -2.7, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: 2.75, scale: 1.0, oscillationX: { amplitude: 42, speed: 2.5 } },
-      { shapeType: 'concentric_square', rotationSpeed: -2.8, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: 2.85, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: -2.9, scale: 1.0 },
-    ],
-    starThresholds: [1200, 1950, 2600, 3250, 3800],
+    shapes: ['v_shape', 'circle', 'inverted_v', 'rounded_square', 'octagon', 'circle_ring', 'v_shape', 'cross', 'diamond', 'double_ring', 'circle', 'inverted_v', 'concentric_square', 'hexagon', 'rounded_square', 'v_shape', 'circle_ring', 'star_polygon', 'inverted_v', 'circle', 'octagon', 'cross', 'diamond', 'circle'],
   },
   {
-    id: 24,
-    title: 'Hexa-Cross Nexus',
-    difficulty: 'expert+',
-    description: 'Hexagons and 4-way crosses forming a dense gauntlet.',
+    title: 'Serrated Star Array',
+    description: '24 8-pointed star perimeters rotating at high velocity.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'cross', rotationSpeed: 2.65, scale: 1.05 },
-      { shapeType: 'hexagon', rotationSpeed: -2.75, scale: 1.05 },
-      { shapeType: 'cross', rotationSpeed: 2.8, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: -2.85, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: 2.9, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: -2.95, scale: 1.0 },
-    ],
-    starThresholds: [1250, 2050, 2750, 3400, 3950],
+    shapes: ['star_polygon', 'circle', 'cross', 'rounded_square', 'octagon', 'circle_ring', 'star_polygon', 'diamond', 'double_ring', 'hexagon', 'circle', 'concentric_square', 'star_polygon', 'v_shape', 'rounded_square', 'inverted_v', 'circle_ring', 'star_polygon', 'circle', 'octagon', 'cross', 'diamond', 'double_ring', 'star_polygon'],
   },
   {
-    id: 25,
-    title: 'Inverted Labyrinth',
-    difficulty: 'expert+',
-    description: 'Six varied obstacles with inverted chevrons and nested boxes.',
+    title: 'Concentric Labyrinth',
+    description: '24 dual-ring and double-square barriers with overlapping colored arms.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'inverted_v', rotationSpeed: 2.7, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: -2.8, scale: 1.0 },
-      { shapeType: 'u_shape', rotationSpeed: 2.85, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: -2.9, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: 2.95, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -3.0, scale: 1.05 },
-    ],
-    starThresholds: [1300, 2150, 2850, 3500, 4100],
+    shapes: ['concentric_square', 'circle', 'double_ring', 'rounded_square', 'octagon', 'circle_ring', 'cross', 'diamond', 'concentric_square', 'star_polygon', 'circle', 'hexagon', 'double_ring', 'v_shape', 'rounded_square', 'inverted_v', 'circle_ring', 'concentric_square', 'circle', 'octagon', 'cross', 'double_ring', 'diamond', 'concentric_square'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 6: EXTREME (LEVELS 26 - 30)
-  // -------------------------------------------------------------------------
+  // 26-30: TIER 6 - EXTREME (26 passes)
   {
-    id: 26,
-    title: 'Velocity Surge',
-    difficulty: 'extreme',
-    description: 'Blazing speed rotation with tight reflex requirements.',
+    title: 'Velocity Shift Matrix',
+    description: '26 high-speed shapes featuring abrupt rotational direction inversions.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'rotated_square', rotationSpeed: 2.8, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -2.9, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: 2.95, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: -3.0, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: 3.05, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -3.1, scale: 1.05 },
-    ],
-    starThresholds: [1400, 2250, 3000, 3700, 4300],
+    shapes: ['circle', 'octagon', 'double_ring', 'rounded_square', 'star_polygon', 'circle_ring', 'cross', 'diamond', 'concentric_square', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'octagon', 'double_ring', 'circle_ring', 'star_polygon', 'cross', 'circle', 'triangle', 'concentric_square', 'diamond', 'hexagon', 'octagon', 'circle'],
   },
   {
-    id: 27,
-    title: 'Triple Vortex Nexus',
-    difficulty: 'extreme',
-    description: 'Double concentric rings interspersed with high-speed chevrons.',
+    title: 'Synchronized Chaos',
+    description: '26 multi-directional rotating obstacles with synchronized sinusoidal sway.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'double_ring', rotationSpeed: 2.85, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: -2.95, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 3.0, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: -3.05, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: 3.1, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: -3.15, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: 3.2, scale: 1.0 },
-    ],
-    starThresholds: [1500, 2400, 3200, 3900, 4550],
+    shapes: ['octagon', 'circle', 'cross', 'rounded_square', 'star_polygon', 'circle_ring', 'diamond', 'double_ring', 'hexagon', 'concentric_square', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'octagon', 'cross', 'circle_ring', 'star_polygon', 'double_ring', 'circle', 'diamond', 'hexagon', 'concentric_square', 'triangle', 'octagon', 'circle'],
   },
   {
-    id: 28,
-    title: 'Serrated Stars',
-    difficulty: 'extreme',
-    description: 'Serrated star polygons moving in fast harmonic oscillation.',
+    title: 'Starfall Velocity',
+    description: '26 rapid star polygons and concentric rings with zero room for error.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'star_polygon', rotationSpeed: 2.9, scale: 1.0, oscillationX: { amplitude: 44, speed: 2.6 } },
-      { shapeType: 'hexagon', rotationSpeed: -3.0, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: 3.05, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.1, scale: 1.0, oscillationX: { amplitude: 44, speed: 2.6 } },
-      { shapeType: 'inverted_v', rotationSpeed: 3.15, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -3.2, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 3.25, scale: 1.05 },
-    ],
-    starThresholds: [1600, 2550, 3400, 4100, 4800],
+    shapes: ['star_polygon', 'circle', 'double_ring', 'rounded_square', 'octagon', 'circle_ring', 'cross', 'diamond', 'concentric_square', 'star_polygon', 'circle', 'hexagon', 'v_shape', 'rounded_square', 'inverted_v', 'double_ring', 'circle_ring', 'star_polygon', 'octagon', 'circle', 'cross', 'concentric_square', 'diamond', 'star_polygon', 'hexagon', 'circle'],
   },
   {
-    id: 29,
-    title: 'Boxed Matrix',
-    difficulty: 'extreme',
-    description: 'Nested boxes and sharp diamonds shifting with narrow clear points.',
+    title: 'Quantum Gauntlet',
+    description: '26 hyper-precision geometric shapes rotating at maximum stable speed.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'concentric_square', rotationSpeed: 2.95, scale: 1.0 },
-      { shapeType: 'open_square', rotationSpeed: -3.05, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: 3.1, scale: 1.0 },
-      { shapeType: 'u_shape', rotationSpeed: -3.15, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 3.2, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: -3.25, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: 3.3, scale: 1.0 },
-    ],
-    starThresholds: [1700, 2700, 3600, 4300, 5050],
+    shapes: ['double_ring', 'circle', 'concentric_square', 'rounded_square', 'star_polygon', 'circle_ring', 'octagon', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'concentric_square', 'circle_ring', 'star_polygon', 'octagon', 'circle', 'cross', 'diamond', 'hexagon', 'double_ring', 'star_polygon', 'circle'],
   },
   {
-    id: 30,
-    title: 'Super-Speed Octagon',
-    difficulty: 'extreme',
-    description: '7 dynamic obstacles rotating at extreme speed. Stay centered!',
+    title: 'Extreme Apex',
+    description: '26 relentless obstacles. The decisive filter before the Master Tiers.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'circle_ring', rotationSpeed: 3.0, scale: 1.05 },
-      { shapeType: 'triangle', rotationSpeed: -3.1, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: 3.15, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -3.2, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 3.25, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.3, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: 3.35, scale: 1.0 },
-    ],
-    starThresholds: [1800, 2850, 3800, 4550, 5300],
+    shapes: ['star_polygon', 'circle', 'double_ring', 'rounded_square', 'octagon', 'concentric_square', 'circle_ring', 'cross', 'diamond', 'hexagon', 'circle', 'star_polygon', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'circle_ring', 'octagon', 'concentric_square', 'circle', 'cross', 'diamond', 'star_polygon', 'hexagon', 'double_ring', 'circle'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 7: MASTER (LEVELS 31 - 35)
-  // -------------------------------------------------------------------------
+  // 31-35: TIER 7 - MASTER (28 passes)
   {
-    id: 31,
-    title: 'Master Convergence',
-    difficulty: 'master',
-    description: 'Fast multi-shape convergence with high-frequency oscillation.',
+    title: 'Master Harmonic Gate',
+    description: '28 master-tier obstacles featuring horizontal drift and complex geometries.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'rotated_square', rotationSpeed: 3.1, scale: 1.0, oscillationX: { amplitude: 45, speed: 2.7 } },
-      { shapeType: 'circle_ring', rotationSpeed: -3.2, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 3.25, scale: 1.0 },
-      { shapeType: 'inverted_v', rotationSpeed: -3.3, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 3.35, scale: 1.05 },
-      { shapeType: 'cross', rotationSpeed: -3.4, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: 3.45, scale: 1.0 },
-    ],
-    starThresholds: [1900, 3000, 4000, 4800, 5600],
+    shapes: ['circle', 'octagon', 'double_ring', 'rounded_square', 'concentric_square', 'star_polygon', 'circle_ring', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'octagon', 'double_ring', 'circle_ring', 'concentric_square', 'star_polygon', 'circle', 'cross', 'diamond', 'hexagon', 'triangle', 'double_ring', 'octagon', 'star_polygon', 'circle'],
   },
   {
-    id: 32,
-    title: 'Vortex Inversion',
-    difficulty: 'master',
-    description: 'Concentric boxes and double rings testing your rhythm under pressure.',
+    title: 'Oscillating Octagon Web',
+    description: '28 octagonal and star barriers moving with opposing harmonic trajectories.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'concentric_square', rotationSpeed: 3.15, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: -3.25, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: 3.3, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -3.35, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: 3.4, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: -3.45, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: 3.5, scale: 1.05 },
-    ],
-    starThresholds: [2000, 3150, 4200, 5050, 5900],
+    shapes: ['octagon', 'circle', 'star_polygon', 'rounded_square', 'double_ring', 'circle_ring', 'concentric_square', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'octagon', 'star_polygon', 'circle_ring', 'double_ring', 'concentric_square', 'circle', 'cross', 'diamond', 'octagon', 'star_polygon', 'hexagon', 'double_ring', 'octagon', 'circle'],
   },
   {
-    id: 33,
-    title: 'Hexa-Chromatic Marathon',
-    difficulty: 'master',
-    description: 'Seven rapid-fire obstacles in relentless succession.',
+    title: 'Chrono Ring Inversion',
+    description: '28 concentric rings and sharp polygons alternating rotation directions.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'hexagon', rotationSpeed: 3.2, scale: 1.05 },
-      { shapeType: 'cross', rotationSpeed: -3.3, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 3.35, scale: 1.0 },
-      { shapeType: 'open_square', rotationSpeed: -3.4, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: 3.45, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: -3.5, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: 3.55, scale: 1.05 },
-    ],
-    starThresholds: [2100, 3300, 4400, 5300, 6200],
+    shapes: ['double_ring', 'circle', 'concentric_square', 'rounded_square', 'octagon', 'circle_ring', 'star_polygon', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'concentric_square', 'circle_ring', 'octagon', 'star_polygon', 'circle', 'cross', 'diamond', 'hexagon', 'double_ring', 'concentric_square', 'octagon', 'star_polygon', 'circle'],
   },
   {
-    id: 34,
-    title: 'Precision Gauntlet',
-    difficulty: 'master',
-    description: 'Acute angles with rapid directional switching.',
+    title: 'Starlight Labyrinth',
+    description: '28 complex star polygons and multi-layered geometries demanding acute rhythm.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'triangle', rotationSpeed: 3.25, scale: 1.0 },
-      { shapeType: 'inverted_v', rotationSpeed: -3.35, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: 3.4, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: -3.45, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: 3.5, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -3.55, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: 3.6, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: -3.65, scale: 1.05 },
-    ],
-    starThresholds: [2200, 3500, 4650, 5600, 6550],
+    shapes: ['star_polygon', 'circle', 'double_ring', 'rounded_square', 'octagon', 'circle_ring', 'concentric_square', 'cross', 'diamond', 'hexagon', 'circle', 'star_polygon', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'circle_ring', 'octagon', 'concentric_square', 'circle', 'star_polygon', 'cross', 'diamond', 'hexagon', 'double_ring', 'star_polygon', 'octagon', 'circle'],
   },
   {
-    id: 35,
-    title: 'Master Marathon',
-    difficulty: 'master',
-    description: 'Eight consecutive obstacles. Absolute focus required.',
+    title: 'The Master Vanguard',
+    description: '28 high-velocity barriers testing stamina and instant color identification.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'circle_ring', rotationSpeed: 3.3, scale: 1.05 },
-      { shapeType: 'concentric_square', rotationSpeed: -3.4, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 3.45, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: -3.5, scale: 1.0 },
-      { shapeType: 'u_shape', rotationSpeed: 3.55, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.6, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 3.65, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: -3.7, scale: 1.0 },
-    ],
-    starThresholds: [2350, 3700, 4900, 5900, 6900],
+    shapes: ['concentric_square', 'circle', 'star_polygon', 'rounded_square', 'double_ring', 'circle_ring', 'octagon', 'cross', 'diamond', 'hexagon', 'circle', 'concentric_square', 'v_shape', 'inverted_v', 'rounded_square', 'star_polygon', 'circle_ring', 'double_ring', 'octagon', 'circle', 'cross', 'diamond', 'hexagon', 'concentric_square', 'star_polygon', 'double_ring', 'octagon', 'circle'],
   },
 
-  // -------------------------------------------------------------------------
-  // TIER 8: MASTER+ (LEVELS 36 - 39)
-  // -------------------------------------------------------------------------
+  // 36-40: TIER 8 & 9 - MASTER+ & FINAL CHALLENGE (28 to 30 passes)
   {
-    id: 36,
-    title: 'Sonic Rings',
-    difficulty: 'master+',
-    description: 'Super-fast concentric vortex rings with razor-thin safe windows.',
+    title: 'Hyper Velocity Gauntlet',
+    description: '28 ultra-fast rotating barriers pushing reaction times to the physical limit.',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'double_ring', rotationSpeed: 3.4, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -3.5, scale: 1.05 },
-      { shapeType: 'double_ring', rotationSpeed: 3.55, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.6, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: 3.65, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -3.7, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 3.75, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: -3.8, scale: 1.05 },
-    ],
-    starThresholds: [2500, 3900, 5200, 6250, 7300],
+    shapes: ['double_ring', 'circle', 'star_polygon', 'rounded_square', 'octagon', 'concentric_square', 'circle_ring', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'star_polygon', 'circle_ring', 'octagon', 'concentric_square', 'circle', 'cross', 'diamond', 'hexagon', 'double_ring', 'star_polygon', 'octagon', 'concentric_square', 'circle'],
   },
   {
-    id: 37,
-    title: 'Chevrons of Fire',
-    difficulty: 'master+',
-    description: 'Fast synchronized chevrons oscillating in opposite directions.',
+    title: 'Harmonic Chevron Apex',
+    description: '28 synchronized chevrons and concentric rings drifting horizontally in counter-phase.',
     startColor: 'pink',
-    obstacles: [
-      { shapeType: 'v_shape', rotationSpeed: 3.45, scale: 1.0, oscillationX: { amplitude: 45, speed: 2.8 } },
-      { shapeType: 'inverted_v', rotationSpeed: -3.55, scale: 1.0, oscillationX: { amplitude: 45, speed: 2.8 } },
-      { shapeType: 'double_ring', rotationSpeed: 3.6, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.65, scale: 1.0 },
-      { shapeType: 'concentric_square', rotationSpeed: 3.7, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: -3.75, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: 3.8, scale: 1.0 },
-      { shapeType: 'circle_ring', rotationSpeed: -3.85, scale: 1.05 },
-    ],
-    starThresholds: [2650, 4100, 5500, 6600, 7700],
+    shapes: ['v_shape', 'circle', 'inverted_v', 'rounded_square', 'double_ring', 'circle_ring', 'star_polygon', 'octagon', 'concentric_square', 'cross', 'circle', 'diamond', 'hexagon', 'rounded_square', 'v_shape', 'inverted_v', 'circle_ring', 'double_ring', 'star_polygon', 'circle', 'octagon', 'concentric_square', 'cross', 'diamond', 'v_shape', 'inverted_v', 'double_ring', 'circle'],
   },
   {
-    id: 38,
     title: 'Hyper Harmonic Drift',
-    difficulty: 'master+',
-    description: 'Extreme harmonic horizontal drift on high-velocity shapes.',
+    description: '30 high-velocity shapes with harmonic lateral drift across the central vertical axis.',
     startColor: 'cyan',
-    obstacles: [
-      { shapeType: 'star_polygon', rotationSpeed: 3.5, scale: 1.0, oscillationX: { amplitude: 48, speed: 3.0 } },
-      { shapeType: 'hexagon', rotationSpeed: -3.6, scale: 1.05, oscillationX: { amplitude: 40, speed: 2.8 } },
-      { shapeType: 'double_ring', rotationSpeed: 3.65, scale: 1.0 },
-      { shapeType: 'open_square', rotationSpeed: -3.7, scale: 1.05 },
-      { shapeType: 'concentric_square', rotationSpeed: 3.75, scale: 1.0 },
-      { shapeType: 'triangle', rotationSpeed: -3.8, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 3.85, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: -3.9, scale: 1.05 },
-    ],
-    starThresholds: [2800, 4350, 5800, 7000, 8150],
+    shapes: ['star_polygon', 'circle', 'double_ring', 'rounded_square', 'octagon', 'circle_ring', 'concentric_square', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'star_polygon', 'double_ring', 'circle_ring', 'octagon', 'concentric_square', 'circle', 'cross', 'diamond', 'hexagon', 'star_polygon', 'double_ring', 'octagon', 'concentric_square', 'circle', 'star_polygon', 'circle'],
   },
   {
-    id: 39,
     title: 'Championship Gate',
-    difficulty: 'master+',
-    description: 'The penultimate gauntlet before the Grand Finale. Eight high-tier shapes.',
+    description: '30 high-tier shapes in grueling succession before the Grand Finale.',
     startColor: 'yellow',
-    obstacles: [
-      { shapeType: 'concentric_square', rotationSpeed: 3.55, scale: 1.0 },
-      { shapeType: 'double_ring', rotationSpeed: -3.65, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: 3.7, scale: 1.0 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.75, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 3.8, scale: 1.05 },
-      { shapeType: 'hexagon', rotationSpeed: -3.85, scale: 1.05 },
-      { shapeType: 'inverted_v', rotationSpeed: 3.9, scale: 1.0 },
-      { shapeType: 'diamond', rotationSpeed: -3.95, scale: 1.0 },
-    ],
-    starThresholds: [3000, 4600, 6150, 7400, 8600],
+    shapes: ['concentric_square', 'circle', 'double_ring', 'rounded_square', 'star_polygon', 'circle_ring', 'octagon', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'concentric_square', 'double_ring', 'circle_ring', 'star_polygon', 'octagon', 'circle', 'cross', 'diamond', 'hexagon', 'concentric_square', 'double_ring', 'star_polygon', 'octagon', 'circle', 'cross', 'circle'],
   },
-
-  // -------------------------------------------------------------------------
-  // TIER 9: FINAL CHALLENGE (LEVEL 40 - THE ABSOLUTE PINNACLE)
-  // -------------------------------------------------------------------------
   {
-    id: 40,
     title: 'Crazy Colors Grandmaster',
-    difficulty: 'final_challenge',
-    description: 'The ultimate 9-obstacle championship course! Complete this to become the Crazy Colors Champion!',
+    description: 'The ultimate 30-obstacle championship course! Conquer all 30 color passes to become the undisputed Crazy Colors Grandmaster!',
     startColor: 'purple',
-    obstacles: [
-      { shapeType: 'double_ring', rotationSpeed: 3.6, scale: 1.05 },
-      { shapeType: 'star_polygon', rotationSpeed: -3.7, scale: 1.0, oscillationX: { amplitude: 46, speed: 2.8 } },
-      { shapeType: 'concentric_square', rotationSpeed: 3.75, scale: 1.0 },
-      { shapeType: 'v_shape', rotationSpeed: -3.8, scale: 1.0 },
-      { shapeType: 'cross', rotationSpeed: 3.85, scale: 1.05 },
-      { shapeType: 'triangle', rotationSpeed: -3.9, scale: 1.0 },
-      { shapeType: 'hexagon', rotationSpeed: 3.95, scale: 1.05 },
-      { shapeType: 'circle_ring', rotationSpeed: -4.0, scale: 1.05 },
-      { shapeType: 'diamond', rotationSpeed: 4.05, scale: 1.0 },
-    ],
-    starThresholds: [3300, 5000, 6700, 8100, 9500],
+    shapes: ['double_ring', 'circle', 'star_polygon', 'rounded_square', 'concentric_square', 'circle_ring', 'octagon', 'cross', 'diamond', 'hexagon', 'circle', 'v_shape', 'inverted_v', 'rounded_square', 'double_ring', 'star_polygon', 'circle_ring', 'octagon', 'concentric_square', 'circle', 'cross', 'diamond', 'hexagon', 'double_ring', 'star_polygon', 'octagon', 'concentric_square', 'circle', 'star_polygon', 'double_ring'],
   },
 ];
+
+export const CRAZY_COLORS_LEVELS: LevelDefinition[] = LEVEL_THEMES.map((theme, index) => {
+  const levelId = index + 1;
+  const tierIndex = Math.min(TIER_NAMES.length - 1, Math.floor((levelId - 1) / 5));
+  const difficulty = TIER_NAMES[tierIndex];
+
+  // Base rotation speed starts at 1.25 rad/s and scales up to 3.2 rad/s
+  const baseSpeed = 1.25 + (levelId - 1) * 0.05;
+
+  const obstacles: ObstacleDef[] = theme.shapes.map((shapeType, shapeIdx) => {
+    // Alternating rotation directions with slight speed variance
+    const dir = shapeIdx % 2 === 0 ? 1 : -1;
+    const speedVariation = 0.05 * (shapeIdx % 3);
+    const rotationSpeed = +(dir * (baseSpeed + speedVariation)).toFixed(2);
+
+    const obs: ObstacleDef = {
+      shapeType,
+      rotationSpeed,
+      scale: 1.0,
+    };
+
+    // For levels 10 and above, add slight horizontal oscillation on select obstacles
+    if (levelId >= 10 && shapeIdx % 4 === 2) {
+      const amp = Math.min(45, 20 + (levelId - 10) * 0.8);
+      const oscSpeed = +(1.5 + (levelId - 10) * 0.05).toFixed(2);
+      obs.oscillationX = { amplitude: amp, speed: oscSpeed };
+    }
+
+    return obs;
+  });
+
+  // Calculate star thresholds based on level multiplier and number of obstacles
+  // Estimated average points per pass = 22 * levelMultiplier
+  // Level completion perfect accuracy bonus = 100 * levelMultiplier
+  const levelMultiplier = 1.0 + (levelId - 1) * 0.05;
+  const estimatedPassScore = 22 * levelMultiplier;
+  const maxPossible = Math.round(obstacles.length * estimatedPassScore + 100 * levelMultiplier);
+
+  const starThresholds: [number, number, number, number, number] = [
+    Math.round(maxPossible * 0.35),
+    Math.round(maxPossible * 0.50),
+    Math.round(maxPossible * 0.65),
+    Math.round(maxPossible * 0.80),
+    Math.round(maxPossible * 0.95),
+  ];
+
+  return {
+    id: levelId,
+    title: theme.title,
+    difficulty,
+    description: theme.description,
+    obstacles,
+    startColor: theme.startColor,
+    starThresholds,
+  };
+});

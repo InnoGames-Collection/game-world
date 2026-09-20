@@ -56,7 +56,26 @@ export class TournamentLeaderboardService {
     try {
       const data = localStorage.getItem(STORAGE_KEY_STATS);
       if (data) {
-        return { ...DEFAULT_PLAYER_STATS, ...JSON.parse(data) };
+        const parsed = JSON.parse(data);
+        const safeCoins = Number.isFinite(parsed.coins) ? parsed.coins : DEFAULT_PLAYER_STATS.coins;
+        const safeScore = Number.isFinite(parsed.totalTournamentScore) ? parsed.totalTournamentScore : 0;
+        const safeLevel = Number.isFinite(parsed.unlockedLevel) && parsed.unlockedLevel >= 1 ? parsed.unlockedLevel : 1;
+        const safeHints = Number.isFinite(parsed.availableHints) ? parsed.availableHints : DEFAULT_PLAYER_STATS.availableHints;
+        const safeLives = Number.isFinite(parsed.lives) ? parsed.lives : DEFAULT_PLAYER_STATS.lives;
+        const safeCombo = Number.isFinite(parsed.bestCombo) ? parsed.bestCombo : 0;
+
+        return {
+          ...DEFAULT_PLAYER_STATS,
+          ...parsed,
+          coins: safeCoins,
+          totalTournamentScore: safeScore,
+          unlockedLevel: safeLevel,
+          availableHints: safeHints,
+          lives: safeLives,
+          bestCombo: safeCombo,
+          starsByLevel: parsed.starsByLevel || {},
+          highScoreByLevel: parsed.highScoreByLevel || {},
+        };
       }
     } catch {
       // Fallback
@@ -152,15 +171,23 @@ class TournamentLeaderboardManager {
     levelScore: number,
     accuracy: number,
     bestCombo: number,
-    coinsWon: number
+    coinsWon: number = 10
   ) {
-    this.stats.totalTournamentScore += levelScore;
-    this.stats.coins += coinsWon;
+    const safeScore = Number.isFinite(levelScore) ? levelScore : 0;
+    const safeCoins = Number.isFinite(coinsWon) ? coinsWon : 10;
+    const currentScore = Number.isFinite(this.stats.totalTournamentScore) ? this.stats.totalTournamentScore : 0;
+    const currentCoins = Number.isFinite(this.stats.coins) ? this.stats.coins : 50;
+
+    this.stats.totalTournamentScore = currentScore + safeScore;
+    this.stats.coins = currentCoins + safeCoins;
     this.stats.highScoreByLevel[level] = Math.max(
       this.stats.highScoreByLevel[level] || 0,
-      levelScore
+      safeScore
     );
-    this.stats.bestCombo = Math.max(this.stats.bestCombo, bestCombo);
+    this.stats.bestCombo = Math.max(
+      this.stats.bestCombo || 0,
+      Number.isFinite(bestCombo) ? bestCombo : 0
+    );
 
     if (level >= this.stats.unlockedLevel && this.stats.unlockedLevel < 40) {
       this.stats.unlockedLevel = level + 1;
@@ -181,13 +208,20 @@ class TournamentLeaderboardManager {
   }
 
   public addHints(count: number, costCoins: number) {
-    this.stats.availableHints += count;
-    this.stats.coins = Math.max(0, this.stats.coins - costCoins);
+    const safeCount = Number.isFinite(count) ? count : 3;
+    const safeCost = Number.isFinite(costCoins) ? costCoins : 0;
+    const currentHints = Number.isFinite(this.stats.availableHints) ? this.stats.availableHints : 3;
+    const currentCoins = Number.isFinite(this.stats.coins) ? this.stats.coins : 50;
+
+    this.stats.availableHints = currentHints + safeCount;
+    this.stats.coins = Math.max(0, currentCoins - safeCost);
     this.saveStats();
   }
 
   public addCoins(delta: number) {
-    this.stats.coins = Math.max(0, this.stats.coins + delta);
+    const safeDelta = Number.isFinite(delta) ? delta : 0;
+    const currentCoins = Number.isFinite(this.stats.coins) ? this.stats.coins : 50;
+    this.stats.coins = Math.max(0, currentCoins + safeDelta);
     this.saveStats();
   }
 

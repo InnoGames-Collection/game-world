@@ -1,22 +1,95 @@
 /**
- * Premium 3D Glossy Block & Blocker Renderer
+ * Premium 3D Glossy Block & Connected Polyomino Piece Renderer
  * Delivers glossy specular reflections, dimensional extrusion, and rich tactile depth.
+ * Multi-cell pieces visually connect into ONE cohesive molded tile.
  */
 
 import React from 'react';
 import { BlockColor, BlockerType, SpecialBlockType } from './types';
+
+// Color configuration: Top shine, Body gradient, Border highlight, Bottom extrusion
+export const COLOR_STYLES: Record<
+  BlockColor,
+  {
+    from: string;
+    via: string;
+    to: string;
+    borderTop: string;
+    borderBottom: string;
+    highlight: string;
+    shadow: string;
+  }
+> = {
+  cyan: {
+    from: '#38bdf8',
+    via: '#0284c7',
+    to: '#0369a1',
+    borderTop: '#7dd3fc',
+    borderBottom: '#075985',
+    highlight: '#bae6fd',
+    shadow: 'rgba(2,132,199,0.5)',
+  },
+  green: {
+    from: '#34d399',
+    via: '#059669',
+    to: '#047857',
+    borderTop: '#6ee7b7',
+    borderBottom: '#064e3b',
+    highlight: '#a7f3d0',
+    shadow: 'rgba(5,150,105,0.5)',
+  },
+  magenta: {
+    from: '#f43f5e',
+    via: '#e11d48',
+    to: '#be123c',
+    borderTop: '#fda4af',
+    borderBottom: '#9f1239',
+    highlight: '#fecdd3',
+    shadow: 'rgba(225,29,72,0.5)',
+  },
+  yellow: {
+    from: '#fde047',
+    via: '#eab308',
+    to: '#ca8a04',
+    borderTop: '#fef08a',
+    borderBottom: '#a16207',
+    highlight: '#fef9c3',
+    shadow: 'rgba(234,179,8,0.5)',
+  },
+  orange: {
+    from: '#fb923c',
+    via: '#ea580c',
+    to: '#c2410c',
+    borderTop: '#fdba74',
+    borderBottom: '#9a3412',
+    highlight: '#ffedd5',
+    shadow: 'rgba(234,88,12,0.5)',
+  },
+  purple: {
+    from: '#c084fc',
+    via: '#9333ea',
+    to: '#7e22ce',
+    borderTop: '#d8b4fe',
+    borderBottom: '#6b21a8',
+    highlight: '#f3e8ff',
+    shadow: 'rgba(147,51,234,0.5)',
+  },
+};
 
 interface BlockRendererProps {
   color?: BlockColor;
   blocker?: BlockerType;
   iceHits?: number;
   special?: SpecialBlockType;
-  size?: number; // Size in pixels
+  size?: number;
   className?: string;
   isGhost?: boolean;
   isValidGhost?: boolean;
 }
 
+/**
+ * Single Block Cell (Used for placed grid cells and ghost cells on the board)
+ */
 export const BlockRenderer: React.FC<BlockRendererProps> = ({
   color = 'cyan',
   blocker = 'none',
@@ -33,7 +106,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       <div
         className={`rounded-md transition-all duration-100 ${
           isValidGhost
-            ? 'bg-amber-400/40 border-2 border-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse'
+            ? 'bg-amber-400/50 border-2 border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.7)] animate-pulse'
             : 'bg-red-500/40 border-2 border-red-400 shadow-[0_0_8px_rgba(239,68,68,0.5)]'
         } ${className}`}
         style={{ width: size, height: size }}
@@ -48,10 +121,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         className={`relative rounded-md overflow-hidden bg-gradient-to-b from-stone-500 via-stone-700 to-stone-900 border border-stone-400/60 shadow-md ${className}`}
         style={{ width: size, height: size }}
       >
-        {/* Chiseled bevel highlights */}
         <div className="absolute inset-0 border-t border-l border-stone-300/40 pointer-events-none" />
         <div className="absolute inset-0 border-b border-r border-black/80 pointer-events-none" />
-        {/* Granite Texture Marks */}
         <div className="absolute inset-1 border border-stone-800/60 rounded flex items-center justify-center">
           <div className="w-1/2 h-1/2 border border-stone-400/20 rotate-45" />
         </div>
@@ -59,23 +130,20 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     );
   }
 
-  // 2. Wood Blocker (Requires adjacent line clear)
+  // 2. Wood Blocker
   if (blocker === 'wood') {
     return (
       <div
         className={`relative rounded-md overflow-hidden bg-gradient-to-b from-[#8d4f2b] via-[#6e371a] to-[#4e240f] border border-[#b36a3c] shadow-md ${className}`}
         style={{ width: size, height: size }}
       >
-        {/* Top wood bevel */}
         <div className="absolute inset-0 border-t border-l border-[#d48c5a]/60 pointer-events-none" />
         <div className="absolute inset-0 border-b border-r border-[#260f04]/90 pointer-events-none" />
-        {/* Timber grain lines */}
         <div className="absolute inset-1 flex flex-col justify-between py-1 opacity-40">
           <div className="h-[1px] bg-[#d48c5a]" />
           <div className="h-[1px] bg-[#260f04]" />
           <div className="h-[1px] bg-[#d48c5a]" />
         </div>
-        {/* Corner Rivets */}
         <div className="absolute top-1 left-1 w-1 h-1 rounded-full bg-[#e8a87c] shadow-[0_0_2px_#000]" />
         <div className="absolute top-1 right-1 w-1 h-1 rounded-full bg-[#e8a87c] shadow-[0_0_2px_#000]" />
         <div className="absolute bottom-1 left-1 w-1 h-1 rounded-full bg-[#e8a87c] shadow-[0_0_2px_#000]" />
@@ -84,7 +152,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     );
   }
 
-  // 3. Ice Blocker (Cracked after 1 hit, breaks after 2)
+  // 3. Ice Blocker
   if (blocker === 'ice') {
     const isCracked = iceHits >= 1;
     return (
@@ -92,12 +160,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
         className={`relative rounded-md overflow-hidden bg-gradient-to-br from-cyan-100 via-sky-300 to-blue-500 border border-cyan-200 shadow-md ${className}`}
         style={{ width: size, height: size }}
       >
-        {/* Crystal highlight */}
         <div className="absolute inset-0 border-t border-l border-white/80 pointer-events-none" />
         <div className="absolute inset-0 border-b border-r border-blue-900/60 pointer-events-none" />
-        {/* Ice Sheen */}
         <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/70 to-transparent rounded-t" />
-        {/* Fracture cracks if hit once */}
         {isCracked ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <svg viewBox="0 0 30 30" className="w-full h-full p-1 stroke-white stroke-2 fill-none drop-shadow">
@@ -113,7 +178,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     );
   }
 
-  // 4. Locked Cell (Cannot be placed upon until unlocked)
+  // 4. Locked Cell
   if (blocker === 'locked') {
     return (
       <div
@@ -129,74 +194,8 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
     );
   }
 
-  // 5. Standard 3D Glossy Blocks
-  // Color configuration: Top shine, Body gradient, Border highlight, Bottom extrusion
-  const colorStyles: Record<BlockColor, {
-    from: string;
-    via: string;
-    to: string;
-    borderTop: string;
-    borderBottom: string;
-    highlight: string;
-    shadow: string;
-  }> = {
-    cyan: {
-      from: '#38bdf8',
-      via: '#0284c7',
-      to: '#0369a1',
-      borderTop: '#7dd3fc',
-      borderBottom: '#075985',
-      highlight: '#bae6fd',
-      shadow: 'rgba(2,132,199,0.5)',
-    },
-    green: {
-      from: '#34d399',
-      via: '#059669',
-      to: '#047857',
-      borderTop: '#6ee7b7',
-      borderBottom: '#064e3b',
-      highlight: '#a7f3d0',
-      shadow: 'rgba(5,150,105,0.5)',
-    },
-    magenta: {
-      from: '#f43f5e',
-      via: '#e11d48',
-      to: '#be123c',
-      borderTop: '#fda4af',
-      borderBottom: '#9f1239',
-      highlight: '#fecdd3',
-      shadow: 'rgba(225,29,72,0.5)',
-    },
-    yellow: {
-      from: '#fde047',
-      via: '#eab308',
-      to: '#ca8a04',
-      borderTop: '#fef08a',
-      borderBottom: '#a16207',
-      highlight: '#fef9c3',
-      shadow: 'rgba(234,179,8,0.5)',
-    },
-    orange: {
-      from: '#fb923c',
-      via: '#ea580c',
-      to: '#c2410c',
-      borderTop: '#fdba74',
-      borderBottom: '#9a3412',
-      highlight: '#ffedd5',
-      shadow: 'rgba(234,88,12,0.5)',
-    },
-    purple: {
-      from: '#c084fc',
-      via: '#9333ea',
-      to: '#7e22ce',
-      borderTop: '#d8b4fe',
-      borderBottom: '#6b21a8',
-      highlight: '#f3e8ff',
-      shadow: 'rgba(147,51,234,0.5)',
-    },
-  };
-
-  const style = colorStyles[color] || colorStyles.cyan;
+  // 5. Standard 3D Glossy Block
+  const style = COLOR_STYLES[color] || COLOR_STYLES.cyan;
 
   return (
     <div
@@ -216,8 +215,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
           opacity: 0.85,
         }}
       />
-
-      {/* Side extruded highlight */}
+      {/* Side extruded borders */}
       <div
         className="absolute top-0 left-0 bottom-0 w-[2px] pointer-events-none"
         style={{ background: style.borderTop, opacity: 0.6 }}
@@ -235,21 +233,147 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
           </div>
         </div>
       )}
-
       {special === 'line_h' && (
         <div className="absolute inset-0 flex items-center justify-center text-white drop-shadow">
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
+            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
           </svg>
         </div>
       )}
-
       {special === 'line_v' && (
         <div className="absolute inset-0 flex items-center justify-center text-white drop-shadow">
           <svg className="w-4 h-4 rotate-90" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z"/>
+            <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
           </svg>
         </div>
+      )}
+    </div>
+  );
+};
+
+interface ConnectedPieceProps {
+  matrix: number[][];
+  color: BlockColor;
+  special?: SpecialBlockType;
+  cellSize: number;
+  className?: string;
+  onCellPointerDown?: (e: React.PointerEvent, r: number, c: number) => void;
+}
+
+/**
+ * Connected Polyomino Piece Renderer:
+ * Renders a multi-cell shape as ONE cohesive, unified molded tile!
+ * Seamlessly joins adjacent cells without thick gap dividers, giving authentic tactile presence.
+ */
+export const ConnectedPieceRenderer: React.FC<ConnectedPieceProps> = ({
+  matrix,
+  color,
+  special = 'none',
+  cellSize,
+  className = '',
+  onCellPointerDown,
+}) => {
+  const rows = matrix.length;
+  const cols = matrix[0].length;
+  const style = COLOR_STYLES[color] || COLOR_STYLES.cyan;
+
+  return (
+    <div
+      className={`relative inline-block select-none ${className}`}
+      style={{
+        width: cols * cellSize,
+        height: rows * cellSize,
+        display: 'grid',
+        gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
+        gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
+      }}
+    >
+      {matrix.map((row, r) =>
+        row.map((val, c) => {
+          if (val === 0) {
+            return <div key={`${r}-${c}`} style={{ width: cellSize, height: cellSize }} />;
+          }
+
+          // Check occupied neighbors
+          const hasTop = r > 0 && matrix[r - 1]?.[c] === 1;
+          const hasBottom = r < rows - 1 && matrix[r + 1]?.[c] === 1;
+          const hasLeft = c > 0 && matrix[r]?.[c - 1] === 1;
+          const hasRight = c < cols - 1 && matrix[r]?.[c + 1] === 1;
+
+          // Corner rounding: only round convex outer corners!
+          const rTL = !hasTop && !hasLeft ? '6px' : '0px';
+          const rTR = !hasTop && !hasRight ? '6px' : '0px';
+          const rBL = !hasBottom && !hasLeft ? '6px' : '0px';
+          const rBR = !hasBottom && !hasRight ? '6px' : '0px';
+
+          return (
+            <div
+              key={`${r}-${c}`}
+              onPointerDown={(e) => onCellPointerDown && onCellPointerDown(e, r, c)}
+              className="relative select-none overflow-hidden"
+              style={{
+                width: cellSize,
+                height: cellSize,
+                borderTopLeftRadius: rTL,
+                borderTopRightRadius: rTR,
+                borderBottomLeftRadius: rBL,
+                borderBottomRightRadius: rBR,
+                background: `linear-gradient(180deg, ${style.from} 0%, ${style.via} 60%, ${style.to} 100%)`,
+                boxShadow: `
+                  ${!hasTop ? `inset 0 1px 1px ${style.borderTop},` : ''}
+                  ${!hasBottom ? `inset 0 -2px 1px ${style.borderBottom},` : ''}
+                  ${!hasLeft ? `inset 1px 0 1px ${style.borderTop},` : ''}
+                  ${!hasRight ? `inset -1px 0 1px ${style.borderBottom},` : ''}
+                  0 2px 5px rgba(0,0,0,0.3)
+                `,
+              }}
+            >
+              {/* Top bevel specular shine on exterior top edge */}
+              {!hasTop && (
+                <div
+                  className="absolute top-[2px] left-[2px] right-[2px] h-[36%] pointer-events-none"
+                  style={{
+                    borderTopLeftRadius: rTL,
+                    borderTopRightRadius: rTR,
+                    background: `linear-gradient(180deg, ${style.highlight} 0%, rgba(255,255,255,0.05) 100%)`,
+                    opacity: 0.85,
+                  }}
+                />
+              )}
+
+              {/* Subtle tactile engraved seam between internal adjacent cells */}
+              {hasRight && (
+                <div className="absolute top-0 right-0 bottom-0 w-[1px] bg-black/25 pointer-events-none" />
+              )}
+              {hasBottom && (
+                <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-black/30 pointer-events-none" />
+              )}
+
+              {/* Special bomb / line icons */}
+              {special === 'bomb' && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full bg-slate-950 border border-amber-300 flex items-center justify-center shadow-lg animate-pulse">
+                    <span className="text-[9px] leading-none">💣</span>
+                  </div>
+                </div>
+              )}
+              {special === 'line_h' && (
+                <div className="absolute inset-0 flex items-center justify-center text-white drop-shadow">
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
+                  </svg>
+                </div>
+              )}
+              {special === 'line_v' && (
+                <div className="absolute inset-0 flex items-center justify-center text-white drop-shadow">
+                  <svg className="w-3.5 h-3.5 rotate-90" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6.99 11L3 15l3.99 4v-3H14v-2H6.99v-3zM21 9l-3.99-4v3H10v2h7.01v3L21 9z" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   );

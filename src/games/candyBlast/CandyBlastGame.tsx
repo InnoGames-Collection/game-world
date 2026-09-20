@@ -49,7 +49,13 @@ import { SpecialComboLayer } from './SpecialComboLayer';
 import { ExplosionCanvas, ExplosionCanvasHandle } from './ExplosionCanvas';
 import { CANDY_LEVELS, getLevelConfig } from './levelBank';
 import { loadPlayerProgress, recordLevelCompletion, getTotalStarsEarned } from './levelStorage';
-import { GameDefinition } from '../../types';
+import { LevelSelectModal } from './LevelSelectModal';
+import { CandyMainMenu } from './components/CandyMainMenu';
+import { CandyLevelsScreen } from './components/CandyLevelsScreen';
+import { CandyLeaderboard } from './components/CandyLeaderboard';
+import { CandyHowToPlay } from './components/CandyHowToPlay';
+import { CandySettings } from './components/CandySettings';
+import { GameDefinition, UserProfile } from '../../types';
 import { 
   Pause, 
   Play, 
@@ -69,6 +75,7 @@ import {
 
 interface CandyBlastGameProps {
   game: GameDefinition;
+  profile?: UserProfile;
   onGameOver: (score: number, durationSeconds: number) => void;
   onExit: () => void;
   isAudioEnabled?: boolean;
@@ -83,14 +90,21 @@ const CANDY_HEX_COLORS: Record<CandyType, string> = {
   'green-crystal': '#22C55E',
 };
 
+type CandyScreen = 'menu' | 'levels' | 'leaderboard' | 'how_to_play' | 'settings' | 'gameplay';
+
 export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
   game,
+  profile,
   onGameOver,
   onExit,
   isAudioEnabled = true,
 }) => {
+  // Navigation & Hub State (Default to professional pre-game menu)
+  const [currentScreen, setCurrentScreen] = useState<CandyScreen>('menu');
+
   // Campaign & Level Selection State
   const [progress, setProgress] = useState<PlayerProgress>(() => loadPlayerProgress());
+  const [isLevelSelectOpen, setIsLevelSelectOpen] = useState<boolean>(false);
   const [levelNumber, setLevelNumber] = useState<number>(() => {
     const saved = loadPlayerProgress();
     return Math.min(40, Math.max(1, saved.unlockedLevel));
@@ -385,8 +399,8 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
     setEarnedStars(stars);
 
     // Save to persistent campaign progress
-    const result = recordLevelCompletion(levelNumber, currScore, stars);
-    setProgress(result.progress);
+    const updatedProgress = recordLevelCompletion(levelNumber, currScore, stars);
+    setProgress(updatedProgress.progress);
 
     CandyAudio.playFanfare();
     setLevelStatus('level_won');
@@ -505,7 +519,7 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
             if (fxIndex === 0) CandyAudio.playBombExplosion();
             else CandyAudio.playSecondaryExplosion(fxIndex);
           } else if (fx.type === 'color-rainbow') {
-            explosionCanvasRef.current?.triggerColorSupernova({ row: fx.row, col: fx.col }, candyColor || '#FF007F');
+            explosionCanvasRef.current?.triggerColorSupernova({ row: fx.row, col: fx.col }, undefined, candyColor || '#FF007F');
             CandyAudio.playColorBomb();
           }
         });
@@ -827,7 +841,7 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
       explosionCanvasRef.current?.triggerBombExplosion(pos, 1.6, pieceColor || '#FFA500');
       CandyAudio.playBombExplosion();
     } else if (blastType === 'color-rainbow') {
-      explosionCanvasRef.current?.triggerColorSupernova(pos, pieceColor || '#FF007F');
+      explosionCanvasRef.current?.triggerColorSupernova(pos, affectedPositions, pieceColor || '#FF007F');
       CandyAudio.playColorBomb();
     }
 
@@ -891,6 +905,7 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
         } else {
           explosionCanvasRef.current?.triggerColorSupernova(
             { row: secondaryPiece.row, col: secondaryPiece.col },
+            secondaryBlast.affectedPositions,
             secColor
           );
         }
@@ -1075,7 +1090,7 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
         explosionCanvasRef.current?.triggerBombExplosion(pos1, 2.0, '#FF007F');
         CandyAudio.playColorSpecialCascade();
       } else if (animType === 'cosmic-board-wipe') {
-        explosionCanvasRef.current?.triggerColorSupernova(pos1, '#FF007F');
+        explosionCanvasRef.current?.triggerColorSupernova(pos1, specialCombo.clearedPositions, '#FF007F');
         CandyAudio.playColorColorCosmicWipe();
       } else {
         CandyAudio.playColorBomb();
@@ -1359,8 +1374,95 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
 
   const handleExitToArcade = () => {
     CandyAudio.stopAll();
-    onExit();
+    setCurrentScreen('menu');
   };
+
+  // Android device back button & popstate navigation
+  useEffect(() => {
+    window.history.pushState({ inCandy: true }, '');
+
+    const handlePopState = () => {
+      if (currentScreen !== 'menu') {
+        setCurrentScreen('menu');
+        window.history.pushState({ inCandy: true }, '');
+      } else {
+        onExit();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentScreen, onExit]);
+
+  // Render Pre-game Hub Screens
+  if (currentScreen === 'menu') {
+    return (
+      <CandyMainMenu
+        progress={progress}
+        onPlayOrContinue={() => {
+          const targetLevel = Math.min(40, Math.max(1, progress.unlockedLevel));
+          setLevelNumber(targetLevel);
+          setupLevel(targetLevel);
+          setCurrentScreen('gameplay');
+        }}
+        onOpenLevels={() => setCurrentScreen('levels')}
+        onOpenLeaderboard={() => setCurrentScreen('leaderboard')}
+        onOpenHowToPlay={() => setCurrentScreen('how_to_play')}
+        onOpenSettings={() => setCurrentScreen('settings')}
+        onExitGame={onExit}
+        isAudioEnabled={!muted}
+        onToggleAudio={() => setMuted((prev) => !prev)}
+      />
+    );
+  }
+
+  if (currentScreen === 'levels') {
+    return (
+      <CandyLevelsScreen
+        progress={progress}
+        onSelectLevel={(lvl) => {
+          setLevelNumber(lvl);
+          setupLevel(lvl);
+          setCurrentScreen('gameplay');
+        }}
+        onBack={() => setCurrentScreen('menu')}
+      />
+    );
+  }
+
+  if (currentScreen === 'leaderboard') {
+    return (
+      <CandyLeaderboard
+        progress={progress}
+        playerMsisdn={profile?.phoneNumber || '251911598830'}
+        onBack={() => setCurrentScreen('menu')}
+      />
+    );
+  }
+
+  if (currentScreen === 'how_to_play') {
+    return (
+      <CandyHowToPlay onBack={() => setCurrentScreen('menu')} />
+    );
+  }
+
+  if (currentScreen === 'settings') {
+    return (
+      <CandySettings
+        progress={progress}
+        isAudioEnabled={!muted}
+        onToggleAudio={() => setMuted((prev) => !prev)}
+        onProgressReset={(newProg) => {
+          setProgress(newProg);
+          setLevelNumber(1);
+          setupLevel(1);
+        }}
+        onBack={() => setCurrentScreen('menu')}
+      />
+    );
+  }
 
   // Warning when low on moves
   const isMovesLow = movesRemaining <= 5 && movesRemaining > 0;
@@ -1411,23 +1513,29 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
           <span className="hidden sm:inline">EXIT</span>
         </button>
 
-        {/* CURRENT LEVEL DISPLAY (Hidden Total Level Count) */}
-        <div
+        {/* CURRENT LEVEL DISPLAY (Tap to open level map / select level) */}
+        <button
           id="candy-level-badge"
-          className="flex-1 min-w-0 h-10 px-2.5 rounded-xl bg-gradient-to-r from-[#1688C9]/35 to-[#0E5282]/80 border border-[#1688C9]/60 text-white flex items-center gap-2 shadow-xs"
+          onClick={() => {
+            CandyAudio.stopAll();
+            setIsLevelSelectOpen(true);
+          }}
+          className="flex-1 min-w-0 h-10 px-2.5 rounded-xl bg-gradient-to-r from-[#1688C9]/35 to-[#0E5282]/80 hover:from-[#1688C9]/50 hover:to-[#0E5282] border border-[#1688C9]/60 active:scale-95 text-white flex items-center gap-2 shadow-xs cursor-pointer transition-all"
+          title="Select Level"
         >
           <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#1688C9] to-[#00E5FF] flex items-center justify-center text-slate-950 font-black text-xs shrink-0 shadow-xs">
             {levelNumber}
           </div>
           <div className="flex flex-col text-left min-w-0 leading-tight">
-            <span className="text-[10px] font-black text-blue-200 uppercase tracking-wide truncate">
-              LEVEL {levelNumber}
+            <span className="text-[10px] font-black text-blue-200 uppercase tracking-wide truncate flex items-center gap-1">
+              <span>LEVEL {levelNumber}</span>
+              <span className="text-[8px] text-amber-300 font-bold lowercase opacity-80">(map)</span>
             </span>
             <span className="text-[8px] text-amber-300 font-bold uppercase tracking-wide truncate">
               {levelConfig.name}
             </span>
           </div>
-        </div>
+        </button>
 
         {/* MOVES COUNTER CARD (Replaces the old 2-minute timer) */}
         <div 
@@ -1721,6 +1829,17 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
             </button>
 
             <button
+              onClick={() => {
+                CandyAudio.stopAll();
+                setIsLevelSelectOpen(true);
+              }}
+              className="w-full py-2.5 rounded-xl bg-[#1688C9]/20 hover:bg-[#1688C9]/35 text-blue-200 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer border border-[#1688C9]/40"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span>Select Level (1–40)</span>
+            </button>
+
+            <button
               onClick={handleExitToArcade}
               className="w-full py-2 text-xs text-slate-400 hover:text-white font-semibold transition-colors cursor-pointer"
             >
@@ -1808,6 +1927,16 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
               <RotateCcw className="w-3.5 h-3.5" />
               <span>Replay Level</span>
             </button>
+
+            <button
+              onClick={() => {
+                CandyAudio.stopAll();
+                setCurrentScreen('menu');
+              }}
+              className="w-full py-2 text-xs text-slate-400 hover:text-white font-semibold transition-colors cursor-pointer"
+            >
+              Main Menu
+            </button>
           </div>
         </div>
       )}
@@ -1859,6 +1988,20 @@ export const CandyBlastGame: React.FC<CandyBlastGameProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* LEVEL SELECTION MODAL (SELECT LEVEL → START GAME DIRECTLY WITH ZERO COINS) */}
+      {isLevelSelectOpen && (
+        <LevelSelectModal
+          currentLevel={levelNumber}
+          progress={progress}
+          onSelectLevel={(lvlNum) => {
+            setupLevel(lvlNum);
+            setIsLevelSelectOpen(false);
+            setLevelStatus('playing');
+          }}
+          onClose={() => setIsLevelSelectOpen(false)}
+        />
       )}
     </div>
   );

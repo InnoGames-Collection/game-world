@@ -13,6 +13,10 @@ export interface Collectible3D {
 }
 
 export type GameState = 
+  | 'menu'
+  | 'level_select'
+  | 'leaderboard'
+  | 'settings'
   | 'start_screen' 
   | 'countdown' 
   | 'playing' 
@@ -21,9 +25,59 @@ export type GameState =
   | 'off_road' 
   | 'flipped' 
   | 'paused' 
+  | 'level_complete'
+  | 'level_failed'
   | 'game_over';
 
 export type CrashReason = 'flipped' | 'out_of_fuel' | 'off_road' | 'time_up';
+
+export type HillClimbTier =
+  | 'Very Hard'
+  | 'Very Hard+'
+  | 'Extreme'
+  | 'Extreme+'
+  | 'Expert / Maximum Challenge';
+
+export interface HillClimbLevelConfig {
+  levelNumber: number;
+  name: string;
+  amharicTitle?: string;
+  tier: HillClimbTier;
+  targetDistance: number; // meters
+  terrainSeed: number;
+  hillHeightMult: number;
+  hillFrequencyMult: number;
+  slopeSeverityMult: number;
+  jumpSeverity: 'moderate' | 'high' | 'extreme' | 'master';
+  balanceChallenge: 'rhythm' | 'camel_back' | 'steep_chute' | 'narrow_saddle' | 'step_climbs';
+  description: string;
+  parScore: number;
+  parTimeSeconds: number;
+  initialControlPoints: Array<{ x: number; y: number }>;
+}
+
+export interface LevelCompletionRecord {
+  bestScore: number;
+  bestTime: number;
+  stars: number;
+  completed: boolean;
+  timestamp: number;
+}
+
+export interface PlayerLevelProgress {
+  unlockedLevel: number;
+  completedLevels: { [levelNumber: number]: LevelCompletionRecord };
+  totalCoins: number;
+  totalRuns: number;
+  overallBestScore: number;
+}
+
+export interface HillClimbSettingsState {
+  soundEnabled: boolean;
+  engineSound: boolean;
+  vibration: boolean;
+  accelerometerControls: boolean;
+}
 
 export interface VehiclePhysics3D {
   x: number;

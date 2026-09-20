@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { TrayPiece } from '../types';
-import { BlockRenderer } from '../blockRenderer';
+import { ConnectedPieceRenderer } from '../blockRenderer';
 import { RotateCw } from 'lucide-react';
 
 interface TrayProps {
@@ -27,28 +27,33 @@ export const Tray: React.FC<TrayProps> = ({
       {/* Wooden Tray Container */}
       <div
         id="puzzle-block-tray"
-        className="relative min-h-[105px] rounded-2xl bg-gradient-to-b from-[#4e1d0c] via-[#381307] to-[#250a04] border-2 border-[#b85a24]/80 shadow-[0_8px_20px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(0,0,0,0.8)] px-2 py-2 flex items-center justify-around gap-2"
+        className="relative min-h-[108px] rounded-2xl bg-gradient-to-b from-[#4e1d0c] via-[#381307] to-[#250a04] border-2 border-[#b85a24]/80 shadow-[0_8px_20px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(0,0,0,0.8)] px-2 py-2 flex items-center justify-around gap-2"
       >
         {/* 3 Piece Slots */}
         {pieces.map((piece, idx) => {
           const isPlaced = piece.placed;
           const isDragging = activeDragPieceId === piece.instanceId;
+          const rows = piece.shape.matrix.length;
+          const cols = piece.shape.matrix[0].length;
+          const maxDim = Math.max(rows, cols);
+          const cellSize = maxDim >= 5 ? 14 : maxDim === 4 ? 18 : maxDim === 3 ? 22 : 26;
 
           return (
             <div
               key={piece.instanceId}
               id={`tray-slot-${idx}`}
-              className="relative flex-1 h-[88px] flex items-center justify-center rounded-xl bg-[#240c06]/70 border border-[#6b2a12]/50 shadow-inner"
+              className="relative flex-1 h-[90px] flex items-center justify-center rounded-xl bg-[#240c06]/70 border border-[#6b2a12]/50 shadow-inner overflow-hidden"
             >
               {!isPlaced && !isDragging && (
                 <div
                   onPointerDown={(e) => onPiecePointerDown(e, piece, idx)}
-                  className="cursor-grab active:cursor-grabbing transform hover:scale-105 transition-transform duration-100 touch-none flex flex-col items-center justify-center p-1"
+                  className="cursor-grab active:cursor-grabbing transform hover:scale-105 transition-transform duration-100 touch-none flex items-center justify-center p-1"
                 >
-                  <PieceMatrixView
+                  <ConnectedPieceRenderer
                     matrix={piece.shape.matrix}
                     color={piece.shape.color}
                     special={piece.shape.special}
+                    cellSize={cellSize}
                     onCellPointerDown={(e, r, c) => onPiecePointerDown(e, piece, idx, r, c)}
                   />
                 </div>
@@ -56,8 +61,13 @@ export const Tray: React.FC<TrayProps> = ({
 
               {/* Ghost outline if currently dragging from this slot */}
               {isDragging && (
-                <div className="opacity-25 scale-95 flex flex-col items-center justify-center p-1 pointer-events-none">
-                  <PieceMatrixView matrix={piece.shape.matrix} color={piece.shape.color} special={piece.shape.special} />
+                <div className="opacity-25 scale-95 flex items-center justify-center p-1 pointer-events-none">
+                  <ConnectedPieceRenderer
+                    matrix={piece.shape.matrix}
+                    color={piece.shape.color}
+                    special={piece.shape.special}
+                    cellSize={cellSize}
+                  />
                 </div>
               )}
             </div>
@@ -85,53 +95,6 @@ export const Tray: React.FC<TrayProps> = ({
           </button>
         </div>
       </div>
-    </div>
-  );
-};
-
-/**
- * Compact View of Polyomino Matrix inside Tray Slot
- */
-const PieceMatrixView: React.FC<{
-  matrix: number[][];
-  color: any;
-  special?: any;
-  onCellPointerDown?: (e: React.PointerEvent, r: number, c: number) => void;
-}> = ({ matrix, color, special, onCellPointerDown }) => {
-  const rows = matrix.length;
-  const cols = matrix[0].length;
-  // Calculate cell size so large shapes still fit inside slot comfortably
-  const maxDim = Math.max(rows, cols);
-  const cellSize = maxDim >= 5 ? 14 : maxDim === 4 ? 17 : maxDim === 3 ? 20 : 24;
-
-  return (
-    <div
-      className="grid gap-[2px]"
-      style={{
-        gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
-        gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
-      }}
-    >
-      {matrix.map((row, r) =>
-        row.map((cell, c) => (
-          <div
-            key={`${r}-${c}`}
-            onPointerDown={(e) => {
-              if (cell === 1 && onCellPointerDown) {
-                onCellPointerDown(e, r, c);
-              }
-            }}
-            style={{ width: cellSize, height: cellSize }}
-            className="flex items-center justify-center"
-          >
-            {cell === 1 ? (
-              <BlockRenderer color={color} special={special} size={cellSize} />
-            ) : (
-              <div className="w-full h-full" />
-            )}
-          </div>
-        ))
-      )}
     </div>
   );
 };

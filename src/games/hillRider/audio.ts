@@ -525,6 +525,39 @@ export class HillRiderAudio {
   }
 
   /**
+   * Level Victory Fanfare
+   */
+  public static playWinFanfare() {
+    if (this.isMuted) return;
+    this.init();
+    const ctx = this.ctx;
+    if (!ctx || !this.masterGain) return;
+
+    try {
+      const now = ctx.currentTime;
+      const notes = [
+        { f: 523.25, t: 0.0, d: 0.12 },
+        { f: 659.25, t: 0.12, d: 0.12 },
+        { f: 783.99, t: 0.24, d: 0.12 },
+        { f: 1046.5, t: 0.36, d: 0.45 },
+      ];
+
+      notes.forEach((note) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(note.f, now + note.t);
+        gain.gain.setValueAtTime(0.22, now + note.t);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + note.t + note.d);
+        osc.connect(gain);
+        gain.connect(this.masterGain!);
+        osc.start(now + note.t);
+        osc.stop(now + note.t + note.d + 0.05);
+      });
+    } catch {}
+  }
+
+  /**
    * Immediately stops all sound and cleans up resources
    */
   public static stopAll() {

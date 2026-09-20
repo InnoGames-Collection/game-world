@@ -9,13 +9,16 @@
 import { SoccerTeam } from './soccerTeams';
 
 export type StadiumTier = 
-  | 'training'      // Levels 1-4: Grassroots Training Complex (Daylight)
-  | 'city'          // Levels 5-8: City Stadium (Twilight/Sunset)
-  | 'national'      // Levels 9-12: National Sports Complex (Night Floodlights)
-  | 'elite'         // Levels 13-16: Elite Arena (Championship Night)
-  | 'championship'; // Levels 17-20: World Championship Grand Stadium (World Final Gold)
+  | 'training'      // Levels 1-5: Grassroots Training Complex (Daylight)
+  | 'city'          // Levels 6-10: City Stadium (Twilight/Sunset)
+  | 'national'      // Levels 11-15: National Sports Complex (Night Floodlights)
+  | 'continental'   // Levels 16-20: Continental Arena
+  | 'premier'       // Levels 21-25: Premier Championship Ground
+  | 'elite'         // Levels 26-30: Elite Arena
+  | 'international' // Levels 31-35: International Grand Dome
+  | 'championship'; // Levels 36-40: World Championship Grand Stadium (World Final Gold)
 
-export type DifficultyTier = 'Moderate' | 'Challenging' | 'Advanced' | 'Expert' | 'Master';
+export type DifficultyTier = 'Foundation' | 'Moderate' | 'Challenging' | 'Advanced' | 'Pressure' | 'Expert' | 'Master' | 'Elite';
 export type BallSpeedRating = 'NORMAL' | 'FAST' | 'VERY FAST' | 'EXTREME';
 export type OpponentSkillRating = 'NOVICE' | 'INTERMEDIATE' | 'ADVANCED' | 'EXPERT' | 'MASTER';
 export type SpecialBallType = 'NONE' | 'POWER' | 'PRECISION' | 'SPIN' | 'BONUS';

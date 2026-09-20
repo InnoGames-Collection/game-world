@@ -404,8 +404,8 @@ export const EmojiSortingBallGame: React.FC<EmojiSortingBallGameProps> = ({
             {
               fromIndex: fromIdx,
               toIndex: toIdx,
-              emojiKey: movingEmoji,
               emoji: movingEmoji,
+              emojiKey: movingEmoji,
               count: transferCount,
             },
           ]);
@@ -554,8 +554,7 @@ export const EmojiSortingBallGame: React.FC<EmojiSortingBallGameProps> = ({
     if (undosRemaining <= 0) return;
 
     const lastMove = moveHistory[moveHistory.length - 1];
-    const { fromIndex, toIndex, count = 1 } = lastMove;
-    const emoji = lastMove.emoji || lastMove.emojiKey;
+    const { fromIndex, toIndex, emoji, count = 1 } = lastMove;
 
     const nextTubes = currentTubes.map((t) => [...t]);
     if (nextTubes[toIndex].length < count) return;
@@ -1067,7 +1066,7 @@ export const EmojiSortingBallGame: React.FC<EmojiSortingBallGameProps> = ({
         isOpen={gameState === 'LEADERBOARD'}
         onClose={() => setGameState('MENU')}
         progress={progress}
-        playerName={profile?.displayName || 'You'}
+        playerName={profile?.username || 'You'}
       />
 
       {/* ===================================================================

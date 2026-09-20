@@ -4,16 +4,27 @@
  */
 
 import React, { useRef, useEffect, useCallback } from 'react';
-import { CrazyColor, LevelDefinition, ObstacleInstance, ColorSwitcherInstance, StarCollectible, Particle } from '../types';
+import { CrazyColor, LevelDefinition, ObstacleInstance, ColorSwitcherInstance, StarCollectible, Particle, LevelScoreBreakdown } from '../types';
 import { CRAZY_COLORS_PALETTE, COLOR_KEYS, GAME_PHYSICS } from '../constants';
-import { createShapeSegments, checkObstacleCollision } from '../shapes';
+import { createShapeSegments, checkObstacleCollision, getShapeDifficultyBonus } from '../shapes';
 import { crazyColorsAudio } from '../audioEngine';
+
+interface FloatingScoreText {
+  x: number;
+  y: number;
+  text: string;
+  subtext?: string;
+  color: string;
+  alpha: number;
+  life: number;
+  maxLife: number;
+}
 
 interface CrazyColorsCanvasProps {
   level: LevelDefinition;
   onScoreChange: (score: number) => void;
   onGameOver: (finalScore: number) => void;
-  onLevelComplete: (finalScore: number) => void;
+  onLevelComplete: (finalScore: number, breakdown: LevelScoreBreakdown) => void;
   isPaused: boolean;
 }
 
@@ -30,6 +41,11 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
   // Mutable game simulation state
   const gameStateRef = useRef({
     score: 0,
+    levelScore: 0,
+    streak: 0,
+    totalPassesMade: 0,
+    accuracyMistakes: 0,
+    obstacleStartTime: performance.now(),
     ballX: GAME_PHYSICS.VIRTUAL_WIDTH / 2,
     ballY: 540,
     ballVy: 0,
@@ -42,6 +58,7 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
     switchers: [] as ColorSwitcherInstance[],
     stars: [] as StarCollectible[],
     particles: [] as Particle[],
+    floatingTexts: [] as FloatingScoreText[],
     finishY: 0,
     lastFrameTime: performance.now(),
   });
@@ -50,6 +67,11 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
   const initializeLevel = useCallback(() => {
     const s = gameStateRef.current;
     s.score = 0;
+    s.levelScore = 0;
+    s.streak = 0;
+    s.totalPassesMade = 0;
+    s.accuracyMistakes = 0;
+    s.obstacleStartTime = performance.now();
     s.ballX = GAME_PHYSICS.VIRTUAL_WIDTH / 2;
     s.ballY = 540;
     s.ballVy = 0;
@@ -59,6 +81,7 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
     s.isDead = false;
     s.isComplete = false;
     s.particles = [];
+    s.floatingTexts = [];
     s.obstacles = [];
     s.switchers = [];
     s.stars = [];
@@ -118,6 +141,7 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
 
     if (!s.hasStarted) {
       s.hasStarted = true;
+      s.obstacleStartTime = performance.now();
     }
 
     s.ballVy = GAME_PHYSICS.JUMP_IMPULSE;
@@ -253,19 +277,75 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
             // Pass score check
             if (!obs.passed && s.ballY < obs.y - 80 * obs.scale) {
               obs.passed = true;
-              s.score += 250;
+              s.totalPassesMade += 1;
+              s.streak += 1;
+
+              // 1. Calculate Speed Bonus based on elapsed seconds since approach/previous obstacle
+              const elapsedSec = (now - s.obstacleStartTime) / 1000;
+              let speedBonus = 1;
+              if (elapsedSec <= 1.8) {
+                speedBonus = 10;
+              } else if (elapsedSec <= 2.8) {
+                speedBonus = 7;
+              } else if (elapsedSec <= 4.2) {
+                speedBonus = 4;
+              } else {
+                speedBonus = 1;
+              }
+
+              // 2. Streak Bonus:
+              // Consecutive passes: 1st: +0, 2nd: +2, 3rd: +4, 4th: +6, 5th: +8, 6th: +10, 7+: +12
+              const streakBonus = Math.min(12, Math.max(0, (s.streak - 1) * 2));
+
+              // 3. Shape Difficulty Bonus:
+              const shapeBonus = getShapeDifficultyBonus(obs.shapeType);
+
+              // 4. Level Difficulty Multiplier:
+              // Level 1 = 1.00x, Level 2 = 1.05x, Level 3 = 1.10x ... Level 40 = 2.95x
+              const levelMultiplier = 1.0 + (level.id - 1) * 0.05;
+
+              // 5. Total Pass Score Formula:
+              // (10 + SpeedBonus + StreakBonus + DifficultyBonus) * LevelMultiplier
+              const passScore = Math.round(
+                (10 + speedBonus + streakBonus + shapeBonus) * levelMultiplier
+              );
+
+              s.levelScore += passScore;
+              s.score = s.levelScore;
               onScoreChange(s.score);
               crazyColorsAudio.playPassObstacle();
 
+              // Reset approach timer for next obstacle
+              s.obstacleStartTime = now;
+
+              // Floating score badge
+              let subtext = '';
+              if (streakBonus > 0) {
+                subtext = `STREAK x${s.streak} (+${streakBonus})`;
+              } else if (speedBonus >= 7) {
+                subtext = `FAST +${speedBonus}`;
+              }
+
+              s.floatingTexts.push({
+                x: obsCenterX,
+                y: obs.y - 25,
+                text: `+${passScore}`,
+                subtext,
+                color: '#FFD800',
+                alpha: 1.0,
+                life: 0,
+                maxLife: 0.9,
+              });
+
               // Spawn passing score confetti
-              for (let i = 0; i < 14; i++) {
+              for (let i = 0; i < 16; i++) {
                 const angle = Math.random() * Math.PI * 2;
                 s.particles.push({
                   x: obsCenterX + (Math.random() - 0.5) * 60,
                   y: obs.y,
-                  vx: Math.cos(angle) * 80,
-                  vy: Math.sin(angle) * 80,
-                  color: '#FFD800',
+                  vx: Math.cos(angle) * 85,
+                  vy: Math.sin(angle) * 85,
+                  color: CRAZY_COLORS_PALETTE[s.ballColor].hex,
                   radius: 2.5,
                   alpha: 0.9,
                   life: 0,
@@ -281,9 +361,22 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
               const dist = Math.hypot(s.ballX - GAME_PHYSICS.VIRTUAL_WIDTH / 2, s.ballY - star.y);
               if (dist < 26) {
                 star.collected = true;
-                s.score += 150;
+                const starPoints = Math.round(15 * (1.0 + (level.id - 1) * 0.05));
+                s.levelScore += starPoints;
+                s.score = s.levelScore;
                 onScoreChange(s.score);
                 crazyColorsAudio.playStarCollect();
+
+                s.floatingTexts.push({
+                  x: GAME_PHYSICS.VIRTUAL_WIDTH / 2,
+                  y: star.y - 15,
+                  text: `+${starPoints}`,
+                  subtext: 'STAR',
+                  color: '#FFD800',
+                  alpha: 1.0,
+                  life: 0,
+                  maxLife: 0.7,
+                });
 
                 for (let i = 0; i < 16; i++) {
                   const angle = Math.random() * Math.PI * 2;
@@ -338,9 +431,46 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
           // Check Level Complete Goal
           if (!s.isComplete && s.ballY <= s.finishY) {
             s.isComplete = true;
-            s.score += 500; // Bonus for completion!
-            onScoreChange(s.score);
             crazyColorsAudio.playLevelComplete();
+
+            // Calculate Accuracy & Level Multiplier
+            const levelMultiplier = 1.0 + (level.id - 1) * 0.05;
+            let accuracyPercent = 100;
+            if (s.accuracyMistakes > 4) {
+              accuracyPercent = 75;
+            } else if (s.accuracyMistakes > 2) {
+              accuracyPercent = 85;
+            } else if (s.accuracyMistakes > 0) {
+              accuracyPercent = 94;
+            } else {
+              accuracyPercent = 100;
+            }
+
+            let accuracyBonus = 0;
+            if (accuracyPercent >= 100) {
+              accuracyBonus = Math.round(100 * levelMultiplier);
+            } else if (accuracyPercent >= 90) {
+              accuracyBonus = Math.round(50 * levelMultiplier);
+            } else if (accuracyPercent >= 80) {
+              accuracyBonus = Math.round(25 * levelMultiplier);
+            }
+
+            s.levelScore += accuracyBonus;
+            s.score = s.levelScore;
+            onScoreChange(s.score);
+
+            if (accuracyBonus > 0) {
+              s.floatingTexts.push({
+                x: GAME_PHYSICS.VIRTUAL_WIDTH / 2,
+                y: s.finishY - 20,
+                text: `+${accuracyBonus}`,
+                subtext: accuracyPercent >= 100 ? 'PERFECT ACCURACY!' : 'ACCURACY BONUS',
+                color: '#00D9FF',
+                alpha: 1.0,
+                life: 0,
+                maxLife: 1.2,
+              });
+            }
 
             // Fireworks burst
             for (let i = 0; i < 48; i++) {
@@ -359,10 +489,33 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
               });
             }
 
+            const breakdown: LevelScoreBreakdown = {
+              basePoints: s.totalPassesMade * 10,
+              speedBonus: 0,
+              streakBonus: 0,
+              shapeBonus: 0,
+              accuracyBonus,
+              levelMultiplier,
+              accuracyPercent,
+              passesCompleted: s.totalPassesMade,
+              finalLevelScore: s.score,
+            };
+
             setTimeout(() => {
-              onLevelComplete(s.score);
+              onLevelComplete(s.score, breakdown);
             }, 800);
           }
+        }
+      }
+
+      // Update floating texts
+      for (let i = s.floatingTexts.length - 1; i >= 0; i--) {
+        const ft = s.floatingTexts[i];
+        ft.life += dt;
+        ft.y -= 25 * dt;
+        ft.alpha = Math.max(0, 1 - ft.life / ft.maxLife);
+        if (ft.life >= ft.maxLife) {
+          s.floatingTexts.splice(i, 1);
         }
       }
 
@@ -614,6 +767,26 @@ export const CrazyColorsCanvas: React.FC<CrazyColorsCanvasProps> = ({
 
         ctx.restore();
       }
+
+      // ----------------- DRAW FLOATING SCORE BADGES -----------------
+      s.floatingTexts.forEach((ft) => {
+        ctx.save();
+        ctx.globalAlpha = ft.alpha;
+        ctx.fillStyle = ft.color;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = ft.color;
+        ctx.font = '900 18px "Plus Jakarta Sans", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(ft.text, ft.x, ft.y);
+        if (ft.subtext) {
+          ctx.font = '800 11px "Plus Jakarta Sans", sans-serif';
+          ctx.fillStyle = '#66E8FF';
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = '#00D9FF';
+          ctx.fillText(ft.subtext, ft.x, ft.y + 15);
+        }
+        ctx.restore();
+      });
 
       ctx.restore(); // end camera transformation
 

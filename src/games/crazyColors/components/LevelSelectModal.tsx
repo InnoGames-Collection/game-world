@@ -4,9 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { ArrowLeft, Lock, Star, Trophy } from 'lucide-react';
+import { ArrowLeft, Lock, Star, Trophy, Sparkles } from 'lucide-react';
 import { CRAZY_COLORS_LEVELS } from '../levels';
-import { CrazyColorsSaveData } from '../types';
+import { CrazyColorsSaveData, computeTotalCompetitiveScore } from '../types';
 import { crazyColorsAudio } from '../audioEngine';
 
 interface LevelSelectModalProps {
@@ -26,6 +26,7 @@ export const LevelSelectModal: React.FC<LevelSelectModalProps> = ({
     (sum: number, stars: number) => sum + stars,
     0
   );
+  const totalScore = saveData.totalCompetitiveScore ?? computeTotalCompetitiveScore(saveData.bestScores);
 
   // Filter levels for the selected tier tab
   const tierStart = (selectedTier - 1) * 10 + 1;
@@ -75,12 +76,22 @@ export const LevelSelectModal: React.FC<LevelSelectModalProps> = ({
           </span>
         </div>
 
-        {/* Total Stars Badge */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-yellow-500/30">
-          <Trophy className="w-4 h-4 text-yellow-400" />
-          <span className="text-xs font-black text-yellow-300 font-mono">
-            {totalStars} / 200
-          </span>
+        {/* Total Stars and Competitive Score Badge */}
+        <div className="flex items-center gap-2">
+          {totalScore > 0 && (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-400/30">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-xs font-black text-cyan-300 font-mono">
+                {totalScore.toLocaleString()}
+              </span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-yellow-500/30">
+            <Trophy className="w-4 h-4 text-yellow-400" />
+            <span className="text-xs font-black text-yellow-300 font-mono">
+              {totalStars} / 200
+            </span>
+          </div>
         </div>
       </header>
 

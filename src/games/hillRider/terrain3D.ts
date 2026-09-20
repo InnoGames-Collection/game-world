@@ -33,7 +33,7 @@
  */
 
 import * as THREE from 'three';
-import { Collectible3D } from './types';
+import { Collectible3D, HillClimbLevelConfig } from './types';
 
 export const ROAD_HALF_WIDTH = 3.5;
 export const SHOULDER_HALF_WIDTH = 5.4;
@@ -104,14 +104,30 @@ export interface SplinePoint {
 // Global deterministic spline point table
 let SPLINE_CONTROL_POINTS: SplinePoint[] = [];
 let maxGeneratedX = 0;
+let activeLevelConfig: HillClimbLevelConfig | null = null;
 
 /**
  * Resets the spline chain to the deterministic daily seed foundation.
  */
 export function resetSplineToDailySeed(): void {
+  activeLevelConfig = null;
   SPLINE_CONTROL_POINTS = [];
   maxGeneratedX = 0;
   ensureSplineControlPoints(10000);
+}
+
+/**
+ * Resets the spline chain specifically for a level's handcrafted profile & seed.
+ */
+export function resetSplineForLevel(levelConfig: HillClimbLevelConfig): void {
+  activeLevelConfig = levelConfig;
+  SPLINE_CONTROL_POINTS = [];
+  maxGeneratedX = 0;
+  ensureSplineControlPoints(Math.max(levelConfig.targetDistance + 1200, 5000));
+}
+
+export function getActiveLevelConfig(): HillClimbLevelConfig | null {
+  return activeLevelConfig;
 }
 
 /**
@@ -120,40 +136,49 @@ export function resetSplineToDailySeed(): void {
  */
 export function ensureSplineControlPoints(targetMaxX: number): void {
   if (SPLINE_CONTROL_POINTS.length === 0) {
-    // STARTING PROGRESSION AS SPECIFIED:
-    // START (Flat launch pad)
-    // -> MODERATE RISE (~3.8m, ~12°)
-    // -> HIGH HILL 1 (~15.5m peak, steep ~26° climb)
-    // -> DEEP LOW VALLEY 1 (plunges down to -2.8m, total 18.3m elevation drop)
-    // -> HIGH HILL 2 (~18.2m peak, technical 27° climb requiring momentum)
-    // -> LOW SECTION (~2.0m rolling saddle)
-    // -> HIGH HILL 3 (~22.0m peak)
-    // -> DEEPER VALLEY (~-4.5m plunge)
-    // -> progressively harder terrain
-    SPLINE_CONTROL_POINTS = [
-      { x: -60, y: 0 },
-      { x: -30, y: 0 },
-      { x: 0, y: 0 },
-      { x: 10, y: 0 },        // Flat starting line
-      { x: 26, y: 3.8 },      // [1. MODERATE RISE]: 3.8m elevation gain
-      { x: 58, y: 15.6 },     // [2. HIGH HILL 1]: Serious 15.6m climb - requires skill & momentum!
-      { x: 92, y: -2.8 },     // [3. DEEP LOW VALLEY 1]: 18.4m drop - requires braking or controlled landing!
-      { x: 132, y: 18.2 },    // [4. HIGH HILL 2]: 21.0m uphill climb to +18.2m crest
-      { x: 168, y: 2.0 },     // [5. LOW SECTION]: Rolling transition saddle at +2.0m
-      { x: 208, y: 22.0 },    // [6. HIGH HILL 3]: Demanding +22.0m crest
-      { x: 248, y: -4.5 },    // [7. DEEPER VALLEY]: -4.5m deep plunge chute
-      { x: 292, y: 25.0 },    // [8. HIGH HILL 4]: Progressive harder technical terrain
-    ];
-    maxGeneratedX = 292;
+    if (activeLevelConfig && activeLevelConfig.initialControlPoints && activeLevelConfig.initialControlPoints.length > 0) {
+      SPLINE_CONTROL_POINTS = activeLevelConfig.initialControlPoints.map((pt) => ({ x: pt.x, y: pt.y }));
+      maxGeneratedX = SPLINE_CONTROL_POINTS[SPLINE_CONTROL_POINTS.length - 1].x;
+    } else {
+      // STARTING PROGRESSION AS SPECIFIED:
+      // START (Flat launch pad)
+      // -> MODERATE RISE (~3.8m, ~12°)
+      // -> HIGH HILL 1 (~15.5m peak, steep ~26° climb)
+      // -> DEEP LOW VALLEY 1 (plunges down to -2.8m, total 18.3m elevation drop)
+      // -> HIGH HILL 2 (~18.2m peak, technical 27° climb requiring momentum)
+      // -> LOW SECTION (~2.0m rolling saddle)
+      // -> HIGH HILL 3 (~22.0m peak)
+      // -> DEEPER VALLEY (~-4.5m plunge)
+      // -> progressively harder terrain
+      SPLINE_CONTROL_POINTS = [
+        { x: -60, y: 0 },
+        { x: -30, y: 0 },
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },        // Flat starting line
+        { x: 26, y: 3.8 },      // [1. MODERATE RISE]: 3.8m elevation gain
+        { x: 58, y: 15.6 },     // [2. HIGH HILL 1]: Serious 15.6m climb - requires skill & momentum!
+        { x: 92, y: -2.8 },     // [3. DEEP LOW VALLEY 1]: 18.4m drop - requires braking or controlled landing!
+        { x: 132, y: 18.2 },    // [4. HIGH HILL 2]: 21.0m uphill climb to +18.2m crest
+        { x: 168, y: 2.0 },     // [5. LOW SECTION]: Rolling transition saddle at +2.0m
+        { x: 208, y: 22.0 },    // [6. HIGH HILL 3]: Demanding +22.0m crest
+        { x: 248, y: -4.5 },    // [7. DEEPER VALLEY]: -4.5m deep plunge chute
+        { x: 292, y: 25.0 },    // [8. HIGH HILL 4]: Progressive harder technical terrain
+      ];
+      maxGeneratedX = 292;
+    }
   }
 
   if (targetMaxX <= maxGeneratedX) {
     return;
   }
 
-  // Deterministic PRNG seeded with the date-based daily seed
-  const dailySeed = getDailySeed();
-  const rng = createMulberry32(dailySeed + SPLINE_CONTROL_POINTS.length);
+  // Deterministic PRNG seeded with level seed or daily seed
+  const seed = activeLevelConfig ? activeLevelConfig.terrainSeed : getDailySeed();
+  const rng = createMulberry32(seed + SPLINE_CONTROL_POINTS.length);
+
+  const heightMult = activeLevelConfig?.hillHeightMult || 1.0;
+  const freqMult = activeLevelConfig?.hillFrequencyMult || 1.0;
+  const slopeMult = activeLevelConfig?.slopeSeverityMult || 1.0;
 
   let currentX = maxGeneratedX;
   let currentY = SPLINE_CONTROL_POINTS[SPLINE_CONTROL_POINTS.length - 1].y;
@@ -164,17 +189,17 @@ export function ensureSplineControlPoints(targetMaxX: number): void {
     const diff = getDifficulty(currentX);
 
     // 1. Difficulty-Modulated Step Distance (Wavelength)
-    const minStep = 42 - diff * 18; // 37m -> 20m
-    const maxStep = 58 - diff * 22; // 52m -> 30m
-    const stepX = minStep + rng() * (maxStep - minStep);
+    const minStep = (42 - diff * 18) / freqMult;
+    const maxStep = (58 - diff * 22) / freqMult;
+    const stepX = Math.max(16, minStep + rng() * (maxStep - minStep));
 
     // 2. Feature Type Selection based on Difficulty & Current Height
     const featureRoll = rng();
     let targetElevation = currentY;
 
-    // Amplitude bounds scale progressively with difficulty
-    const minAmp = 10.0 + diff * 14.0;  // 13.5m -> 27m
-    const maxAmp = 15.0 + diff * 20.0;  // 20m -> 40m
+    // Amplitude bounds scale progressively with difficulty & level multiplier
+    const minAmp = (10.0 + diff * 14.0) * heightMult;
+    const maxAmp = (15.0 + diff * 20.0) * heightMult;
     const amp = minAmp + rng() * (maxAmp - minAmp);
 
     // Alternating elevation targets with balance-testing combinations
@@ -185,7 +210,7 @@ export function ensureSplineControlPoints(targetMaxX: number): void {
       // High on a hill/crest -> Descend to valley, camel-back saddle dip, or step descent
       if (featureRoll < 0.45 && diff >= 0.40) {
         // Camel-back saddle dip before immediate high climb
-        targetElevation = currentY - (7.0 + rng() * 6.5);
+        targetElevation = currentY - (7.0 + rng() * 6.5) * heightMult;
       } else {
         // Full descent into deep valley
         const valleyFloor = -1.5 - diff * 4.5; // Valleys plunge down to -7.5m
@@ -200,9 +225,9 @@ export function ensureSplineControlPoints(targetMaxX: number): void {
       }
     }
 
-    // 3. Clamps max slope to guarantee 100% physical traversability with skill
-    // Safe steep range: 24° -> 34° max
-    const maxAngleDeg = 24.0 + diff * 10.0; // Strictly <= 35.5 degrees
+    // 3. Clamps max slope to guarantee physical traversability with skill
+    // Safe steep range: up to 34.5° max with multipliers
+    const maxAngleDeg = Math.min(34.8, (24.0 + diff * 10.0) * slopeMult);
     const maxSafeSlope = Math.tan(maxAngleDeg * (Math.PI / 180));
 
     let rawSlope = (targetElevation - currentY) / stepX;
@@ -904,6 +929,71 @@ function createGraniteBoulderMesh(): THREE.Group {
   return g;
 }
 
+function createFinishArchMesh(): THREE.Group {
+  const g = new THREE.Group();
+  
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+  const goldMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.85, roughness: 0.15 });
+  const bannerMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.4, emissive: 0x14532d, emissiveIntensity: 0.4 });
+  const checkWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2 });
+  
+  // Left post
+  const postGeo = new THREE.CylinderGeometry(0.25, 0.28, 7.5, 12);
+  const leftPost = new THREE.Mesh(postGeo, frameMat);
+  leftPost.position.set(0, 3.75, -4.6);
+  leftPost.castShadow = true;
+  g.add(leftPost);
+
+  // Right post
+  const rightPost = new THREE.Mesh(postGeo, frameMat);
+  rightPost.position.set(0, 3.75, 4.6);
+  rightPost.castShadow = true;
+  g.add(rightPost);
+
+  // Cross truss bar
+  const trussGeo = new THREE.BoxGeometry(0.5, 0.4, 9.6);
+  const truss = new THREE.Mesh(trussGeo, frameMat);
+  truss.position.set(0, 7.2, 0);
+  truss.castShadow = true;
+  g.add(truss);
+
+  // Banner
+  const bannerGeo = new THREE.BoxGeometry(0.35, 1.5, 9.2);
+  const banner = new THREE.Mesh(bannerGeo, bannerMat);
+  banner.position.set(0, 6.2, 0);
+  banner.castShadow = true;
+  g.add(banner);
+
+  // Checkered border gold stripes
+  const stripeGeo = new THREE.BoxGeometry(0.38, 0.16, 9.2);
+  const stripeTop = new THREE.Mesh(stripeGeo, goldMat);
+  stripeTop.position.set(0, 6.85, 0);
+  g.add(stripeTop);
+  const stripeBottom = new THREE.Mesh(stripeGeo, goldMat);
+  stripeBottom.position.set(0, 5.55, 0);
+  g.add(stripeBottom);
+
+  // Left & Right Flagpoles with Pennants
+  const flagPoleGeo = new THREE.CylinderGeometry(0.06, 0.06, 2.0);
+  const flagGeo = new THREE.BoxGeometry(0.04, 0.8, 1.2);
+  
+  const leftFlagPole = new THREE.Mesh(flagPoleGeo, goldMat);
+  leftFlagPole.position.set(0, 8.2, -4.6);
+  g.add(leftFlagPole);
+  const leftFlag = new THREE.Mesh(flagGeo, checkWhiteMat);
+  leftFlag.position.set(0, 8.6, -4.0);
+  g.add(leftFlag);
+
+  const rightFlagPole = new THREE.Mesh(flagPoleGeo, goldMat);
+  rightFlagPole.position.set(0, 8.2, 4.6);
+  g.add(rightFlagPole);
+  const rightFlag = new THREE.Mesh(flagGeo, checkWhiteMat);
+  rightFlag.position.set(0, 8.6, 4.0);
+  g.add(rightFlag);
+
+  return g;
+}
+
 /**
  * Creates 3D Environmental Props dynamically for any distance chunk
  */
@@ -1008,6 +1098,15 @@ export function createEnvironmentProps(startDistance: number, endDistance: numbe
       tree.position.set(treeX, getTerrainElevation(treeX, treeZ), treeZ);
       group.add(tree);
     }
+  }
+
+  // 5. Level Finish Line Arch if within this distance chunk
+  if (activeLevelConfig && activeLevelConfig.targetDistance >= startDistance && activeLevelConfig.targetDistance < endDistance) {
+    const finishX = activeLevelConfig.targetDistance;
+    const finishY = getTerrainElevation(finishX, 0);
+    const finishArch = createFinishArchMesh();
+    finishArch.position.set(finishX, finishY, 0);
+    group.add(finishArch);
   }
 
   return group;

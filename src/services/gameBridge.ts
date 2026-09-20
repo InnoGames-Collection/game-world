@@ -7,6 +7,7 @@
 import { GameDefinition, GameSessionResult, UserProfile, RewardTransaction } from '../types';
 import { StorageService } from './storageService';
 import { CompetitiveService } from './competitiveService';
+import { GameLeaderboardService } from './gameLeaderboardService';
 
 export const GAME_ENTRY_COIN_COST = 10;
 
@@ -29,6 +30,11 @@ export const GameBridgeService = {
     requiresAuth?: boolean; 
     requiresSubscription?: boolean 
   } {
+    // Candy Crush and Word Legend are completely free with direct access per spec
+    if (game.id === 'candy-blast' || game.id === 'world-legends' || game.isFree || game.accessType === 'FREE' || game.entryCostCoins === 0) {
+      return { allowed: true };
+    }
+
     // In dev / test mode, allow tester to play games freely
     if (DEV_TESTING_MODE) {
       return { allowed: true };
@@ -42,7 +48,7 @@ export const GameBridgeService = {
       };
     }
 
-    const cost = game.entryCostCoins || GAME_ENTRY_COIN_COST;
+    const cost = game.entryCostCoins ?? GAME_ENTRY_COIN_COST;
     if (profile.coins >= cost) {
       return { allowed: true };
     }
@@ -56,14 +62,32 @@ export const GameBridgeService = {
 
   /**
    * Deduction of required entry coins with unique session ID.
-   * In testing mode, if coins are 0, it doesn't fail or drop below 0.
+   * Free games, Candy Crush, and Word Legend NEVER deduct coins.
    */
   deductCoinsForLaunch(
     game: GameDefinition, 
     profile: UserProfile
   ): { updatedProfile: UserProfile; sessionId: string } {
-    const cost = game.entryCostCoins || GAME_ENTRY_COIN_COST;
     const sessionId = `GSESS_${game.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    
+    // Candy Crush and Word Legend (and any free game) must NEVER deduct coins
+    const isZeroCost = 
+      game.id === 'candy-blast' || 
+      game.id === 'world-legends' || 
+      game.isFree || 
+      game.accessType === 'FREE' || 
+      game.entryCostCoins === 0;
+
+    if (isZeroCost) {
+      const updated: UserProfile = {
+        ...profile,
+        matchesPlayed: (profile.matchesPlayed || 0) + 1,
+      };
+      StorageService.saveProfile(updated);
+      return { updatedProfile: updated, sessionId };
+    }
+
+    const cost = game.entryCostCoins ?? GAME_ENTRY_COIN_COST;
     
     // Deduct coins only if available
     const newCoins = Math.max(0, profile.coins - cost);
@@ -89,8 +113,11 @@ export const GameBridgeService = {
     profile: UserProfile,
     tournamentId?: string
   ): { result: GameSessionResult; updatedProfile: UserProfile; transaction?: RewardTransaction } {
-    // ENFORCE STRICT MAXIMUM 400 POINTS PER GAME
-    const validScore = Math.min(400, Math.max(0, Math.round(rawScore)));
+    // Preserve authentic game score without artificial capping
+    const validScore = Math.max(0, Math.round(rawScore));
+
+    // Record score into GameLeaderboardService
+    GameLeaderboardService.recordScore(gameId, validScore, profile.displayName);
 
     const currentHighScore = profile.highScores?.[gameId] || 0;
     const isNewHighScore = validScore > currentHighScore;

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { GameState, CrazyColorsSaveData } from './types';
+import { GameState, CrazyColorsSaveData, LevelScoreBreakdown, computeTotalCompetitiveScore } from './types';
 import { STORAGE_KEY } from './constants';
 import { CRAZY_COLORS_LEVELS } from './levels';
 import { crazyColorsAudio } from './audioEngine';
@@ -27,6 +27,7 @@ const DEFAULT_SAVE_DATA: CrazyColorsSaveData = {
   highestUnlockedLevel: 1, // Only Level 1 unlocked initially
   stars: {},
   bestScores: {},
+  totalCompetitiveScore: 0,
   soundEnabled: true,
   musicEnabled: true,
 };
@@ -39,10 +40,13 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
         const stored = localStorage.getItem(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored);
+          const bestScores = parsed.bestScores || {};
           return {
             ...DEFAULT_SAVE_DATA,
             ...parsed,
             highestUnlockedLevel: Math.max(1, Math.min(40, parsed.highestUnlockedLevel || 1)),
+            bestScores,
+            totalCompetitiveScore: computeTotalCompetitiveScore(bestScores),
           };
         }
       } catch {
@@ -55,6 +59,7 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
   const [gameState, setGameState] = useState<GameState>('MENU');
   const [currentLevelId, setCurrentLevelId] = useState<number>(1);
   const [score, setScore] = useState<number>(0);
+  const [scoreBreakdown, setScoreBreakdown] = useState<LevelScoreBreakdown | undefined>(undefined);
   const [starsEarnedThisRound, setStarsEarnedThisRound] = useState<number>(1);
   const [keyCounter, setKeyCounter] = useState<number>(0); // force canvas re-mount on restart
 
@@ -91,10 +96,15 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
     );
   }, [currentLevelId]);
 
+  const totalCompetitiveScore = useMemo(() => {
+    return saveData.totalCompetitiveScore ?? computeTotalCompetitiveScore(saveData.bestScores);
+  }, [saveData.totalCompetitiveScore, saveData.bestScores]);
+
   // Start specific level
   const handleStartLevel = useCallback((levelId: number) => {
     setCurrentLevelId(levelId);
     setScore(0);
+    setScoreBreakdown(undefined);
     setKeyCounter((k) => k + 1);
     setGameState('PLAYING');
   }, []);
@@ -105,12 +115,15 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
       setScore(finalScore);
       updateAndPersistSaveData((prev) => {
         const prevBest = prev.bestScores[currentLevelId] || 0;
+        const updatedBest = Math.max(prevBest, finalScore);
+        const updatedBestScores = {
+          ...prev.bestScores,
+          [currentLevelId]: updatedBest,
+        };
         return {
           ...prev,
-          bestScores: {
-            ...prev.bestScores,
-            [currentLevelId]: Math.max(prevBest, finalScore),
-          },
+          bestScores: updatedBestScores,
+          totalCompetitiveScore: computeTotalCompetitiveScore(updatedBestScores),
         };
       });
       setGameState('GAME_OVER');
@@ -120,8 +133,9 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
 
   // Handle Level Complete
   const handleLevelComplete = useCallback(
-    (finalScore: number) => {
+    (finalScore: number, breakdown?: LevelScoreBreakdown) => {
       setScore(finalScore);
+      setScoreBreakdown(breakdown);
 
       // Calculate 1-5 stars from level thresholds
       const thresholds = currentLevelDef.starThresholds;
@@ -136,6 +150,11 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
         const nextUnlocked = Math.min(40, Math.max(prev.highestUnlockedLevel, currentLevelId + 1));
         const prevStars = prev.stars[currentLevelId] || 0;
         const prevBest = prev.bestScores[currentLevelId] || 0;
+        const updatedBest = Math.max(prevBest, finalScore);
+        const updatedBestScores = {
+          ...prev.bestScores,
+          [currentLevelId]: updatedBest,
+        };
 
         return {
           ...prev,
@@ -144,10 +163,8 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
             ...prev.stars,
             [currentLevelId]: Math.max(prevStars, stars),
           },
-          bestScores: {
-            ...prev.bestScores,
-            [currentLevelId]: Math.max(prevBest, finalScore),
-          },
+          bestScores: updatedBestScores,
+          totalCompetitiveScore: computeTotalCompetitiveScore(updatedBestScores),
         };
       });
 
@@ -165,6 +182,7 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
       {(gameState === 'PLAYING' || gameState === 'PAUSED') && (
         <TopHud
           score={score}
+          totalCompetitiveScore={totalCompetitiveScore}
           levelId={currentLevelId}
           soundEnabled={saveData.soundEnabled}
           onBack={() => setGameState('MENU')}
@@ -240,6 +258,7 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
           levelId={currentLevelId}
           score={score}
           bestScore={saveData.bestScores[currentLevelId] || score}
+          totalCompetitiveScore={totalCompetitiveScore}
           onRetry={() => handleStartLevel(currentLevelId)}
           onOpenLevels={() => setGameState('LEVEL_SELECT')}
           onHome={() => setGameState('MENU')}
@@ -252,6 +271,8 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
           levelId={currentLevelId}
           score={score}
           bestScore={saveData.bestScores[currentLevelId] || score}
+          totalCompetitiveScore={totalCompetitiveScore}
+          scoreBreakdown={scoreBreakdown}
           starsEarned={starsEarnedThisRound}
           onNextLevel={() => {
             if (currentLevelId < 40) {

@@ -20,7 +20,7 @@ export interface ExplosionCanvasHandle {
   triggerBombAnticipation: (pos: Position, color?: string) => void;
   triggerBombExplosion: (pos: Position, radiusCells?: number, candyColor?: string, intensity?: number) => void;
   triggerLineBlast: (type: 'horizontal' | 'vertical', index: number, candyColor?: string) => void;
-  triggerColorSupernova: (pos: Position, targetPositionsOrColor?: Position[] | string, color?: string) => void;
+  triggerColorSupernova: (pos: Position, targetPositions?: Position[], color?: string) => void;
   triggerStaggeredImpact: (pos: Position, color: string, delayMs: number) => void;
   clear: () => void;
 }
@@ -887,9 +887,7 @@ export const ExplosionCanvas = forwardRef<ExplosionCanvasHandle, { className?: s
       /**
        * 6. COLOR SUPERNOVA
        */
-      triggerColorSupernova: (pos: Position, targetPositionsOrColor?: Position[] | string, colorParam = '#FF007F') => {
-        const targetPositions = Array.isArray(targetPositionsOrColor) ? targetPositionsOrColor : undefined;
-        const color = typeof targetPositionsOrColor === 'string' ? targetPositionsOrColor : colorParam;
+      triggerColorSupernova: (pos: Position, targetPositions?: Position[], color = '#FF007F') => {
         const { x, y, cellSize } = getPixelCoords(pos);
 
         flashesRef.current.push({

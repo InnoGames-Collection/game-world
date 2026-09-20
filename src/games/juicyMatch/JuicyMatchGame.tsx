@@ -128,6 +128,12 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
   const dragStartRef = useRef<{ x: number; y: number; clientX: number; clientY: number } | null>(null);
   const isExecutingRef = useRef<boolean>(false);
 
+  // Authoritative state tracking refs to prevent race conditions and stale closure desync
+  const objectivesRef = useRef<LevelObjective[]>([]);
+  const movesLeftRef = useRef<number>(24);
+  const scoreRef = useRef<number>(0);
+  const isLevelFinishedRef = useRef<boolean>(false);
+
   // Sync mute state on mount
   useEffect(() => {
     soundManager.setMuted(!saveData.soundEnabled);
@@ -211,9 +217,18 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
     setLevelConfig(cfg);
     const initialGrid = createInitialBoard(cfg);
     setBoard(initialGrid);
+
+    isLevelFinishedRef.current = false;
+    movesLeftRef.current = cfg.moves;
     setMovesLeft(cfg.moves);
+
+    scoreRef.current = 0;
     setScore(0);
-    setObjectives(cfg.objectives.map((obj) => ({ ...obj, current: 0 })));
+
+    const freshObjectives = cfg.objectives.map((obj) => ({ ...obj, current: 0 }));
+    objectivesRef.current = freshObjectives;
+    setObjectives(freshObjectives);
+
     setSelectedCell(null);
     setActiveBooster(null);
     setFloatingScores([]);
@@ -287,14 +302,52 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
     }, 1400);
   };
 
-  // Check victory condition
+  // Helper to synchronously update authoritative objectives and keep UI state 100% in sync
+  const updateObjectivesProgress = (
+    clearedFruitTypes: FruitType[],
+    juiceCleared: number,
+    cratesBroken: number,
+    chestsOpened: number
+  ) => {
+    let changed = false;
+    const next = objectivesRef.current.map((obj) => {
+      let delta = 0;
+      if (obj.type === 'collect_fruit' && obj.fruitType) {
+        delta = clearedFruitTypes.filter((t) => t === obj.fruitType).length;
+      } else if (obj.type === 'clear_juice') {
+        delta = juiceCleared;
+      } else if (obj.type === 'break_crates') {
+        delta = cratesBroken;
+      } else if (obj.type === 'open_chests') {
+        delta = chestsOpened;
+      }
+
+      if (delta > 0) {
+        changed = true;
+        return {
+          ...obj,
+          current: Math.min(obj.target, obj.current + delta),
+        };
+      }
+      return obj;
+    });
+
+    if (changed) {
+      objectivesRef.current = next;
+      setObjectives([...next]);
+    }
+    return next;
+  };
+
+  // Check victory condition against authoritative objective state
   const checkWinCondition = (currentObjectives: LevelObjective[]): boolean => {
+    if (!currentObjectives || currentObjectives.length === 0) return false;
     return currentObjectives.every((obj) => obj.current >= obj.target);
   };
 
   // Resolve cascades loop
   const resolveBoardCascades = async (currentGrid: Cell[][], cascadeIndex = 1): Promise<void> => {
-    // 1. Detect matches
+    // 1. Detect matches (with special piece detonations)
     const { matchedCells, specialCreations } = findMatches(currentGrid);
 
     if (matchedCells.length === 0) {
@@ -307,6 +360,31 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
         setReshufflingNotice(false);
         setBoard([...currentGrid]);
       }
+
+      // CRITICAL: Final Authoritative Objective & Completion Validation
+      // All cascades, falling pieces, and effects have fully completed!
+      const isWon = checkWinCondition(objectivesRef.current);
+      if (isWon) {
+        if (!isLevelFinishedRef.current) {
+          isLevelFinishedRef.current = true;
+          handleLevelVictory();
+        }
+        setIsProcessing(false);
+        isExecutingRef.current = false;
+        return;
+      }
+
+      // Only fail if NOT won and no moves remain
+      if (movesLeftRef.current <= 0) {
+        if (!isLevelFinishedRef.current) {
+          isLevelFinishedRef.current = true;
+          handleLevelFail();
+        }
+        setIsProcessing(false);
+        isExecutingRef.current = false;
+        return;
+      }
+
       setIsProcessing(false);
       isExecutingRef.current = false;
       return;
@@ -332,30 +410,26 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
 
     // 4. Calculate score & damage blockers
     const addedScore = matchedCells.length * 30 * cascadeIndex;
-    let nextCalculatedScore = 0;
-    setScore((s) => {
-      const nextScore = s + addedScore;
-      nextCalculatedScore = nextScore;
-      if (onScoreUpdate) onScoreUpdate(nextScore);
+    scoreRef.current += addedScore;
+    const nextCalculatedScore = scoreRef.current;
+    setScore(nextCalculatedScore);
+    if (onScoreUpdate) onScoreUpdate(nextCalculatedScore);
 
-      // Genuine High Score Check: only when previous personal record was > 0 and surpassed for first time
-      if (
-        previousBestScoreRef.current > 0 &&
-        nextScore > previousBestScoreRef.current &&
-        !hasTriggeredHighScoreRef.current
-      ) {
-        hasTriggeredHighScoreRef.current = true;
-        toastQueueRef.current.unshift({
-          id: `high_score_${Date.now()}`,
-          type: 'high_score',
-          title: 'NEW HIGH SCORE!',
-          subtitle: `${nextScore.toLocaleString()} pts`,
-          icon: '🏆',
-        });
-      }
-
-      return nextScore;
-    });
+    // Genuine High Score Check: only when previous personal record was > 0 and surpassed for first time
+    if (
+      previousBestScoreRef.current > 0 &&
+      nextCalculatedScore > previousBestScoreRef.current &&
+      !hasTriggeredHighScoreRef.current
+    ) {
+      hasTriggeredHighScoreRef.current = true;
+      toastQueueRef.current.unshift({
+        id: `high_score_${Date.now()}`,
+        type: 'high_score',
+        title: 'NEW HIGH SCORE!',
+        subtitle: `${nextCalculatedScore.toLocaleString()} pts`,
+        icon: '🏆',
+      });
+    }
 
     // Check & unlock achievements with strict deduplication
     const { updatedSave, newUnlocks } = checkAchievements(saveData, {
@@ -383,27 +457,11 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
     if (cratesBroken > 0) soundManager.playCrateBreak();
     if (juiceCleared > 0) soundManager.playJuiceClear();
 
-    // 5. Update objectives
-    let updatedObjs = [...objectives];
-    setObjectives((prev) => {
-      updatedObjs = prev.map((obj) => {
-        let delta = 0;
-        if (obj.type === 'collect_fruit' && obj.fruitType) {
-          delta = matchedCells.filter(([mx, my]) => currentGrid[my][mx].fruit?.type === obj.fruitType).length;
-        } else if (obj.type === 'clear_juice') {
-          delta = juiceCleared;
-        } else if (obj.type === 'break_crates') {
-          delta = cratesBroken;
-        } else if (obj.type === 'open_chests') {
-          delta = chestsOpened;
-        }
-        return {
-          ...obj,
-          current: Math.min(obj.target, obj.current + delta),
-        };
-      });
-      return updatedObjs;
-    });
+    // 5. Update objectives synchronously & keep UI in sync
+    const matchedFruitTypes = matchedCells
+      .map(([mx, my]) => currentGrid[my][mx].fruit?.type)
+      .filter(Boolean) as FruitType[];
+    updateObjectivesProgress(matchedFruitTypes, juiceCleared, cratesBroken, chestsOpened);
 
     // 6. Clear matched fruits & place newly generated special fruits
     matchedCells.forEach(([mx, my]) => {
@@ -433,14 +491,18 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
       }
     }
 
-    // 8. Check victory condition immediately
-    if (checkWinCondition(updatedObjs)) {
-      handleLevelVictory();
-      return;
-    }
-
-    // 9. Cascade to next round
+    // 8. Cascade to next round
     await resolveBoardCascades(currentGrid, cascadeIndex + 1);
+  };
+
+  // Handle Level Failure
+  const handleLevelFail = () => {
+    if (isLevelFinishedRef.current) return;
+    isLevelFinishedRef.current = true;
+    soundManager.stopMusic();
+    soundManager.playLevelFail();
+    JuicyStorage.failLevel(currentLevelNum);
+    setActiveModal('fail');
   };
 
   // Handle Level Victory
@@ -448,19 +510,20 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
     soundManager.stopMusic();
     soundManager.playLevelComplete();
 
-    // Calculate stars
+    // Calculate stars from authoritative score
+    const currentScore = scoreRef.current;
     let stars = 1;
-    if (score >= levelConfig.starThresholds[2]) stars = 3;
-    else if (score >= levelConfig.starThresholds[1]) stars = 2;
+    if (currentScore >= levelConfig.starThresholds[2]) stars = 3;
+    else if (currentScore >= levelConfig.starThresholds[1]) stars = 2;
     setStarsEarned(stars);
 
-    const { winStreak } = JuicyStorage.completeLevel(currentLevelNum, score, stars);
+    const { winStreak } = JuicyStorage.completeLevel(currentLevelNum, currentScore, stars);
     const updatedSave = JuicyStorage.load();
 
     // Check level completion achievements
     const { updatedSave: withVictoryAch, newUnlocks } = checkAchievements(updatedSave, {
       levelCompleted: currentLevelNum,
-      currentLevelScore: score,
+      currentLevelScore: currentScore,
       totalStars: (Object.values(updatedSave.stars || {}) as number[]).reduce((a, b) => a + (b || 0), 0),
     });
 
@@ -472,7 +535,7 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
 
     // Genuinely report completed level to portal once upon victory
     if (onLevelComplete) {
-      onLevelComplete(score, 60);
+      onLevelComplete(currentScore, 60);
     }
 
     setTimeout(() => {
@@ -487,7 +550,7 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
 
   // Execute swap action between two cells
   const handleSwap = async (x1: number, y1: number, x2: number, y2: number) => {
-    if (isProcessing || isExecutingRef.current) return;
+    if (isProcessing || isExecutingRef.current || isLevelFinishedRef.current) return;
 
     const c1 = board[y1][x1];
     const c2 = board[y2][x2];
@@ -507,7 +570,8 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
 
     if (specialCombo) {
       // Deduct move
-      setMovesLeft((m) => m - 1);
+      movesLeftRef.current -= 1;
+      setMovesLeft(movesLeftRef.current);
 
       if (specialCombo.comboType.includes('rainbow')) {
         soundManager.playRainbowLaser();
@@ -517,9 +581,11 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
         soundManager.playStripedBeam();
       }
 
-      // Mark affected cells
+      // Collect fruit types before clearing
+      const clearedFruitTypes: FruitType[] = [];
       specialCombo.affectedCells.forEach(([ax, ay]) => {
         if (board[ay][ax].fruit) {
+          clearedFruitTypes.push(board[ay][ax].fruit!.type);
           board[ay][ax].fruit!.isMatched = true;
         }
       });
@@ -535,6 +601,14 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
         board,
         specialCombo.affectedCells
       );
+
+      // Synchronously update authoritative objectives and UI
+      updateObjectivesProgress(clearedFruitTypes, juiceCleared, cratesBroken, chestsOpened);
+
+      const addedScore = specialCombo.affectedCells.length * 60;
+      scoreRef.current += addedScore;
+      setScore(scoreRef.current);
+      if (onScoreUpdate) onScoreUpdate(scoreRef.current);
 
       // Gravity & Refill
       let falling = true;
@@ -573,17 +647,8 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
     }
 
     // Valid move: deduct move
-    setMovesLeft((m) => {
-      const nextMoves = m - 1;
-      if (nextMoves <= 0 && !checkWinCondition(objectives)) {
-        setTimeout(() => {
-          soundManager.playLevelFail();
-          JuicyStorage.failLevel(currentLevelNum);
-          setActiveModal('fail');
-        }, 800);
-      }
-      return nextMoves;
-    });
+    movesLeftRef.current -= 1;
+    setMovesLeft(movesLeftRef.current);
 
     await resolveBoardCascades(board, 1);
   };
@@ -601,21 +666,38 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
 
   // Execute active booster on target cell
   const applyBoosterOnCell = async (x: number, y: number) => {
-    if (!activeBooster || isProcessing) return;
+    if (!activeBooster || isProcessing || isLevelFinishedRef.current) return;
     const cell = board[y][x];
     if (!cell.valid) return;
 
     setIsProcessing(true);
     isExecutingRef.current = true;
 
+    const clearedFruits: FruitType[] = [];
+    let juiceCleared = 0;
+    let cratesBroken = 0;
+    let chestsOpened = 0;
+
     if (activeBooster === 'hammer') {
       soundManager.playBombExplosion();
+      if (cell.fruit) clearedFruits.push(cell.fruit.type);
+      if (cell.underlay === 'juice_1' || cell.underlay === 'juice_2') {
+        juiceCleared++;
+        cell.underlay = 'none';
+      }
+      if (cell.blocker?.startsWith('crate')) {
+        cratesBroken++;
+        cell.blocker = null;
+      } else if (cell.blocker === 'chest') {
+        chestsOpened++;
+        cell.blocker = null;
+      }
       cell.fruit = null;
-      if (cell.blocker) cell.blocker = null;
       if (cell.overlay !== 'none') cell.overlay = 'none';
-      if (cell.underlay !== 'none') cell.underlay = 'none';
       setBoard([...board]);
       addFloatingScore(x, y, 100);
+      scoreRef.current += 100;
+      setScore(scoreRef.current);
     } else if (activeBooster === 'reshuffle') {
       soundManager.playSpecialCreate();
       reshuffleMovableFruits(board, levelConfig.availableFruits);
@@ -623,21 +705,45 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
     } else if (activeBooster === 'row_blast') {
       soundManager.playStripedBeam();
       for (let cx = 0; cx < levelConfig.gridWidth; cx++) {
-        board[y][cx].fruit = null;
+        const c = board[y][cx];
+        if (c.valid) {
+          if (c.fruit) clearedFruits.push(c.fruit.type);
+          if (c.underlay === 'juice_1' || c.underlay === 'juice_2') {
+            juiceCleared++;
+            c.underlay = 'none';
+          }
+          if (c.blocker?.startsWith('crate')) {
+            cratesBroken++;
+            c.blocker = null;
+          } else if (c.blocker === 'chest') {
+            chestsOpened++;
+            c.blocker = null;
+          }
+          c.fruit = null;
+        }
       }
       setBoard([...board]);
+      scoreRef.current += levelConfig.gridWidth * 50;
+      setScore(scoreRef.current);
     } else if (activeBooster === 'rainbow_bomb') {
       soundManager.playRainbowLaser();
       if (cell.fruit) {
         const targetColor = cell.fruit.type;
         board.forEach((r) =>
           r.forEach((c) => {
-            if (c.fruit?.type === targetColor) c.fruit = null;
+            if (c.fruit?.type === targetColor) {
+              clearedFruits.push(targetColor);
+              c.fruit = null;
+            }
           })
         );
       }
       setBoard([...board]);
+      scoreRef.current += clearedFruits.length * 60;
+      setScore(scoreRef.current);
     }
+
+    updateObjectivesProgress(clearedFruits, juiceCleared, cratesBroken, chestsOpened);
 
     // Deduct booster count
     const updated = { ...saveData };
@@ -1160,7 +1266,7 @@ export const JuicyMatchGame: React.FC<JuicyMatchGameProps> = ({
       {activeModal === 'fail' && (
         <FailModal
           level={currentLevelNum}
-          objectives={objectives}
+          objectives={objectivesRef.current.length > 0 ? objectivesRef.current : objectives}
           onRetry={startLevelGameplay}
           onExitToMap={() => {
             setActiveModal('none');

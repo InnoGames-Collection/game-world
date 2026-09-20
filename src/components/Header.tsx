@@ -10,7 +10,8 @@
 
 import React from 'react';
 import { UserProfile } from '../types';
-import { Menu, Plus, Sparkles, Coins } from 'lucide-react';
+import { Menu, Plus } from 'lucide-react';
+import { GoPlayLogo } from './GoPlayLogo';
 
 interface HeaderProps {
   profile?: UserProfile;
@@ -36,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="header-main-menu-btn"
               type="button"
               onClick={onOpenMenu}
-              aria-label="Open GameON Tele Menu"
+              aria-label="Open GoPlay Menu"
               className="p-1.5 rounded-xl text-[#17202A] hover:bg-slate-100 active:scale-95 transition-colors cursor-pointer"
               title="Menu"
             >
@@ -65,17 +66,14 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* 2. CENTER: GAMEON TELE Visual Identity */}
+        {/* 2. CENTER: GoPlay Visual Identity */}
         <div 
-          id="header-gameon-tele-brand"
+          id="header-goplay-brand"
           className="flex items-center justify-center text-center cursor-pointer px-1 shrink-0 transition-transform active:scale-98"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          title="GAMEON TELE"
+          title="GoPlay"
         >
-          <span className="text-[17px] sm:text-[19px] font-black tracking-tight text-[#17202A] uppercase flex items-center gap-1">
-            <span>GAMEON</span>
-            <span className="text-[#1688C9]">TELE</span>
-          </span>
+          <GoPlayLogo size="sm" />
         </div>
 
         {/* 3. RIGHT: Coins Balance Chip & Instant Topup */}
@@ -86,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onOpenBuyCoins}
             aria-label="Buy Coins"
             className="group flex items-center gap-1.5 px-2.5 sm:px-3 h-[32px] sm:h-[34px] rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-black text-[11px] sm:text-xs transition-all shadow-xs cursor-pointer active:scale-95"
-            title="Top up coins via telebirr"
+            title="Buy GoPlay Coins"
           >
             <span className="text-sm">🪙</span>
             <span className="font-black text-[#17202A]">{coinsCount}</span>

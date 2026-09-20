@@ -10,6 +10,7 @@ import { crazyColorsAudio } from '../audioEngine';
 
 interface TopHudProps {
   score: number;
+  totalCompetitiveScore?: number;
   levelId: number;
   soundEnabled: boolean;
   onBack: () => void;
@@ -19,6 +20,7 @@ interface TopHudProps {
 
 export const TopHud: React.FC<TopHudProps> = ({
   score,
+  totalCompetitiveScore,
   levelId,
   soundEnabled,
   onBack,
@@ -50,7 +52,9 @@ export const TopHud: React.FC<TopHudProps> = ({
           <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
             LVL {levelId}
           </span>
-          <span className="text-xs font-semibold text-white/80">SCORE</span>
+          <span className="text-[9px] font-bold text-cyan-400 font-mono tracking-tight">
+            TOT: {(totalCompetitiveScore || 0).toLocaleString()}
+          </span>
         </div>
         <div className="text-right">
           <span className="text-lg font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-amber-200 to-white font-mono drop-shadow-[0_0_8px_rgba(255,216,0,0.4)]">

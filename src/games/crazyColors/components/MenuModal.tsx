@@ -7,7 +7,7 @@
 import React from 'react';
 import { Play, Grid, HelpCircle, Volume2, VolumeX, Sparkles, Trophy } from 'lucide-react';
 import { crazyColorsAudio } from '../audioEngine';
-import { CrazyColorsSaveData } from '../types';
+import { CrazyColorsSaveData, computeTotalCompetitiveScore } from '../types';
 
 interface MenuModalProps {
   saveData: CrazyColorsSaveData;
@@ -29,6 +29,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
   onExit,
 }) => {
   const totalStars = Object.values(saveData.stars).reduce((acc: number, cur: number) => acc + cur, 0);
+  const totalScore = saveData.totalCompetitiveScore ?? computeTotalCompetitiveScore(saveData.bestScores);
 
   return (
     <div
@@ -101,6 +102,12 @@ export const MenuModal: React.FC<MenuModalProps> = ({
           <p className="text-xs font-semibold uppercase tracking-widest text-white/60">
             40-Level Championship
           </p>
+          {totalScore > 0 && (
+            <div className="mt-1 px-3 py-1 rounded-full bg-black/40 border border-cyan-400/30 text-[11px] font-bold text-cyan-300 font-mono tracking-wider inline-flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,217,255,0.2)]">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+              <span>TOTAL SCORE: {totalScore.toLocaleString()}</span>
+            </div>
+          )}
         </div>
       </div>
 

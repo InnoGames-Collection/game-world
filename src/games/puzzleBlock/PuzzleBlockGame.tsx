@@ -33,7 +33,7 @@ import { DailyChallengeModal } from './components/DailyChallengeModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AboutModal } from './components/AboutModal';
 import { DailyChallengeBanner } from './components/DailyChallengeBanner';
-import { BlockRenderer } from './blockRenderer';
+import { BlockRenderer, ConnectedPieceRenderer } from './blockRenderer';
 import { GameLeaderboardModal, GAME_CONFIGS } from '../../components/gameNavigation';
 
 const STORAGE_KEY = 'teleplus_puzzle_block_savedata_v1';
@@ -143,6 +143,7 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
   const [trayPieces, setTrayPieces] = useState<TrayPiece[]>([]);
   const [clearingCells, setClearingCells] = useState<Set<string>>(new Set());
   const [comboText, setComboText] = useState<{ text: string; scoreText: string } | null>(null);
+  const [comboStreak, setComboStreak] = useState(0);
 
   // Drag & Drop State with Precision Anchor Math
   const [draggingPiece, setDraggingPiece] = useState<TrayPiece | null>(null);
@@ -255,6 +256,7 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
     setReshuffleRemaining(level.reshuffleLimit);
     setClearingCells(new Set());
     setComboText(null);
+    setComboStreak(0);
     setDraggingPiece(null);
     draggingPieceRef.current = null;
     setHoverGridPos(null);
@@ -262,23 +264,24 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
     setIsValidHover(false);
     isValidHoverRef.current = false;
 
-    // Generate initial 3 tray pieces
+    // Generate initial 3 tray pieces with board awareness
     const diffTier = getDifficultyTier(level.difficulty);
-    const initialPieces = generateTrayPieces(level.id, 0, diffTier, level.allowedShapes);
+    const initialPieces = generateTrayPieces(level.id, 0, diffTier, level.allowedShapes, newGrid);
     setTrayPieces(initialPieces);
   }, []);
 
   function getDifficultyTier(diff: string): number {
     switch (diff) {
-      case 'hard': return 2;
-      case 'hard+': return 3;
-      case 'very_hard': return 4;
-      case 'expert': return 5;
-      case 'expert+': return 6;
-      case 'extreme': return 7;
+      case 'starter': return 1;
+      case 'easy': return 2;
+      case 'medium': return 3;
+      case 'hard': return 4;
+      case 'hard+': return 5;
+      case 'very_hard': return 6;
+      case 'expert': return 7;
       case 'master':
       case 'master+': return 8;
-      default: return 3;
+      default: return 2;
     }
   }
 
@@ -304,7 +307,7 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
     puzzleBlockAudio.playReshuffle();
 
     const diffTier = getDifficultyTier(currentLevel.difficulty);
-    const newPieces = generateTrayPieces(currentLevel.id, turnIndex + 100, diffTier, currentLevel.allowedShapes);
+    const newPieces = generateTrayPieces(currentLevel.id, turnIndex + 100, diffTier, currentLevel.allowedShapes, gridRef.current);
     setTrayPieces(newPieces);
     setReshuffleRemaining((prev) => Math.max(0, prev - 1));
   };
@@ -642,24 +645,38 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
     if (totalLines > 0 || bombCellsToClear.length > 0) {
       let linePoints = 0;
       if (totalLines === 1) linePoints = 100;
-      else if (totalLines === 2) linePoints = 250;
-      else if (totalLines === 3) linePoints = 500;
-      else if (totalLines >= 4) linePoints = 900 + (totalLines - 4) * 400;
+      else if (totalLines === 2) linePoints = 300;
+      else if (totalLines === 3) linePoints = 600;
+      else if (totalLines >= 4) linePoints = 1000 + (totalLines - 4) * 400;
 
-      moveScore += linePoints;
+      const isCrossClear = fullRows.length > 0 && fullCols.length > 0;
+      if (isCrossClear) {
+        linePoints += 200;
+      }
 
-      if (totalLines >= 4) {
+      const nextStreak = comboStreak + 1;
+      setComboStreak(nextStreak);
+      const streakBonus = nextStreak > 1 ? (nextStreak - 1) * 75 : 0;
+      moveScore += linePoints + streakBonus;
+
+      if (isCrossClear) {
         puzzleBlockAudio.playCombo(4);
-        setComboText({ text: 'BLOCK MASTER!', scoreText: `+${moveScore}` });
+        setComboText({ text: 'CROSS CLEAR!', scoreText: `+${moveScore}` });
+      } else if (nextStreak >= 3) {
+        puzzleBlockAudio.playCombo(Math.min(4, nextStreak));
+        setComboText({ text: `COMBO x${nextStreak}!`, scoreText: `+${moveScore}` });
+      } else if (totalLines >= 4) {
+        puzzleBlockAudio.playCombo(4);
+        setComboText({ text: 'QUAD CLEAR!', scoreText: `+${moveScore}` });
       } else if (totalLines === 3) {
         puzzleBlockAudio.playCombo(3);
-        setComboText({ text: 'AMAZING!', scoreText: `+${moveScore}` });
+        setComboText({ text: 'TRIPLE CLEAR!', scoreText: `+${moveScore}` });
       } else if (totalLines === 2) {
         puzzleBlockAudio.playCombo(2);
-        setComboText({ text: 'GREAT!', scoreText: `+${moveScore}` });
+        setComboText({ text: 'DOUBLE CLEAR!', scoreText: `+${moveScore}` });
       } else {
         puzzleBlockAudio.playLineClear(totalLines);
-        setComboText({ text: 'GOOD!', scoreText: `+${moveScore}` });
+        setComboText({ text: 'LINE CLEAR!', scoreText: `+${moveScore}` });
       }
 
       const clearingSet = new Set<string>();
@@ -741,6 +758,7 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
         setComboText(null);
       }, 240);
     } else {
+      setComboStreak(0);
       setGrid(newGrid);
     }
 
@@ -779,7 +797,7 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
       const nextStep = turnIndex + 1;
       setTurnIndex(nextStep);
       const diffTier = getDifficultyTier(currentLevel.difficulty);
-      activeTray = generateTrayPieces(currentLevel.id, nextStep, diffTier, currentLevel.allowedShapes);
+      activeTray = generateTrayPieces(currentLevel.id, nextStep, diffTier, currentLevel.allowedShapes, newGrid);
       setTrayPieces(activeTray);
     } else {
       setTrayPieces(nextPieces);
@@ -847,8 +865,17 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
   // Cell size for preview rendering matching Board.tsx
   const boardCellSize = Math.floor((boardSizePx - 24) / 10);
 
-  // If in Main Menu view, render the MainMenu component
-  if (currentView === 'MENU') {
+  // If in Main Menu or menu sub-modal view, render the MainMenu container
+  const isMenuView =
+    currentView === 'MENU' ||
+    currentView === 'SETTINGS' ||
+    currentView === 'STATISTICS' ||
+    currentView === 'ACHIEVEMENTS' ||
+    currentView === 'DAILY_CHALLENGE' ||
+    currentView === 'ABOUT' ||
+    currentView === 'LEADERBOARD';
+
+  if (isMenuView) {
     return (
       <div className="relative w-full h-full min-h-screen">
         <MainMenu
@@ -893,6 +920,60 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
           onToggleSound={handleToggleSound}
           onExit={onExit}
         />
+
+        {/* Menu Sub-Modals */}
+        {currentView === 'SETTINGS' && (
+          <SettingsModal
+            saveData={saveData}
+            onUpdateSettings={(newVals) => {
+              const updated = { ...saveData, ...newVals };
+              setSaveData(updated);
+              persistSaveData(updated);
+              if (newVals.soundEnabled !== undefined) {
+                puzzleBlockAudio.setSoundEnabled(newVals.soundEnabled);
+              }
+              if (newVals.musicEnabled !== undefined) {
+                puzzleBlockAudio.setMusicEnabled(newVals.musicEnabled);
+              }
+            }}
+            onResetProgress={handleResetProgress}
+            onClose={() => setCurrentView('MENU')}
+          />
+        )}
+
+        {currentView === 'STATISTICS' && (
+          <StatisticsModal saveData={saveData} onClose={() => setCurrentView('MENU')} />
+        )}
+
+        {currentView === 'ACHIEVEMENTS' && (
+          <AchievementsModal saveData={saveData} onClose={() => setCurrentView('MENU')} />
+        )}
+
+        {currentView === 'DAILY_CHALLENGE' && (
+          <DailyChallengeModal
+            saveData={saveData}
+            onStartChallenge={() => {
+              puzzleBlockAudio.playButtonTap();
+              initLevel(currentLevel);
+              setCurrentView('PLAYING');
+              if (saveData.musicEnabled) {
+                puzzleBlockAudio.startAmbientMusic();
+              }
+            }}
+            onClose={() => setCurrentView('MENU')}
+          />
+        )}
+
+        {currentView === 'ABOUT' && (
+          <AboutModal onClose={() => setCurrentView('MENU')} />
+        )}
+
+        {currentView === 'LEADERBOARD' && (
+          <GameLeaderboardModal
+            gameConfig={GAME_CONFIGS['puzzle-block']}
+            onClose={() => setCurrentView('MENU')}
+          />
+        )}
       </div>
     );
   }
@@ -925,16 +1006,6 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
           setCurrentView('HELP');
         }}
       />
-
-      {/* Optional Daily Challenge Banner */}
-      {showDailyBanner && currentView === 'PLAYING' && (
-        <DailyChallengeBanner
-          score={score}
-          completed={saveData.dailyChallengeCompleted}
-          onDismiss={() => setShowDailyBanner(false)}
-          targetScore={2500}
-        />
-      )}
 
       {/* Floating Combo Popup */}
       {comboText && (
@@ -969,10 +1040,10 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
         activeDragPieceId={draggingPiece?.instanceId || null}
       />
 
-      {/* Active Floating Dragged Piece with Anchor Cell Alignment & Touch Offset */}
+      {/* Active Floating Dragged Piece with Connected Mesh Rendering & Touch Offset */}
       {draggingPiece && dragPointerPos && (
         <div
-          className="fixed pointer-events-none z-50 transition-none select-none"
+          className="fixed pointer-events-none z-50 transition-none select-none filter drop-shadow-[0_14px_28px_rgba(0,0,0,0.9)] scale-105"
           style={{
             left: dragPointerPos.effectiveX - (dragAnchor.c + 0.5) * boardCellSize,
             top: dragPointerPos.effectiveY - (dragAnchor.r + 0.5) * boardCellSize,
@@ -980,33 +1051,12 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
             height: draggingPiece.shape.matrix.length * boardCellSize,
           }}
         >
-          <div
-            className="grid gap-[1px] filter drop-shadow-[0_12px_24px_rgba(0,0,0,0.85)]"
-            style={{
-              gridTemplateRows: `repeat(${draggingPiece.shape.matrix.length}, ${boardCellSize}px)`,
-              gridTemplateColumns: `repeat(${draggingPiece.shape.matrix[0].length}, ${boardCellSize}px)`,
-            }}
-          >
-            {draggingPiece.shape.matrix.map((row, r) =>
-              row.map((cell, c) => (
-                <div
-                  key={`${r}-${c}`}
-                  style={{ width: boardCellSize, height: boardCellSize }}
-                  className="flex items-center justify-center"
-                >
-                  {cell === 1 ? (
-                    <BlockRenderer
-                      color={draggingPiece.shape.color}
-                      special={draggingPiece.shape.special}
-                      size={boardCellSize - 2}
-                    />
-                  ) : (
-                    <div className="w-full h-full" />
-                  )}
-                </div>
-              ))
-            )}
-          </div>
+          <ConnectedPieceRenderer
+            matrix={draggingPiece.shape.matrix}
+            color={draggingPiece.shape.color}
+            special={draggingPiece.shape.special}
+            cellSize={boardCellSize}
+          />
         </div>
       )}
 
@@ -1062,13 +1112,6 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
             puzzleBlockAudio.playButtonTap();
             setCurrentView('MENU');
           }}
-        />
-      )}
-
-      {currentView === 'LEADERBOARD' && (
-        <GameLeaderboardModal
-          gameConfig={GAME_CONFIGS['puzzle-block']}
-          onClose={() => setCurrentView('PAUSED')}
         />
       )}
 
@@ -1139,52 +1182,6 @@ export const PuzzleBlockGame: React.FC<PuzzleBlockGameProps> = ({ onExit }) => {
             setCurrentView('MENU');
           }}
         />
-      )}
-
-      {currentView === 'SETTINGS' && (
-        <SettingsModal
-          saveData={saveData}
-          onUpdateSettings={(newVals) => {
-            const updated = { ...saveData, ...newVals };
-            setSaveData(updated);
-            persistSaveData(updated);
-            if (newVals.soundEnabled !== undefined) {
-              puzzleBlockAudio.setSoundEnabled(newVals.soundEnabled);
-            }
-            if (newVals.musicEnabled !== undefined) {
-              puzzleBlockAudio.setMusicEnabled(newVals.musicEnabled);
-            }
-          }}
-          onResetProgress={handleResetProgress}
-          onClose={() => setCurrentView('MENU')}
-        />
-      )}
-
-      {currentView === 'STATISTICS' && (
-        <StatisticsModal saveData={saveData} onClose={() => setCurrentView('MENU')} />
-      )}
-
-      {currentView === 'ACHIEVEMENTS' && (
-        <AchievementsModal saveData={saveData} onClose={() => setCurrentView('MENU')} />
-      )}
-
-      {currentView === 'DAILY_CHALLENGE' && (
-        <DailyChallengeModal
-          saveData={saveData}
-          onStartChallenge={() => {
-            puzzleBlockAudio.playButtonTap();
-            initLevel(currentLevel);
-            setCurrentView('PLAYING');
-            if (saveData.musicEnabled) {
-              puzzleBlockAudio.startAmbientMusic();
-            }
-          }}
-          onClose={() => setCurrentView('MENU')}
-        />
-      )}
-
-      {currentView === 'ABOUT' && (
-        <AboutModal onClose={() => setCurrentView('MENU')} />
       )}
     </div>
   );

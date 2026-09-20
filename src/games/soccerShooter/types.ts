@@ -1,70 +1,53 @@
 /**
- * Soccer Shooter - Types & Interfaces
- * Staggered hexagonal grid soccer-themed bubble shooter
+ * Bubble Shooter - Types & Game State Interfaces
  */
 
-export type SoccerTeamColor =
-  | 'BRAZIL'       // Brazil 🇧🇷 (Canary Green / Gold Rhombus / Celestial Blue)
-  | 'ARGENTINA'    // Argentina 🇦🇷 (Sky Blue & White curved bands / Sun of May gold)
-  | 'ENGLAND'      // England 🏴󠁧󠁢󠁥󠁮󠁧󠁿 (Crisp White / St George Red Cross / Navy trim)
-  | 'FRANCE'       // France 🇫🇷 (Bleu, Blanc, Rouge curved tricolor / Gold rooster)
-  | 'SPAIN'        // Spain 🇪🇸 (Crimson Red / Spanish Gold / Royal Crest)
-  | 'GERMANY'      // Germany 🇩🇪 (White leather / Black, Red, Gold curved sash)
-  | 'ITALY'        // Italy 🇮🇹 (Azzurri Cobalt Blue / Tricolore ribbon / Stars)
-  | 'ETHIOPIA'     // Ethiopia 🇪🇹 (Green, Yellow, Red curved tricolor / Blue star disc)
-  | 'PORTUGAL'     // Portugal 🇵🇹 (Olive Green & Crimson split / Armillary sphere)
-  | 'NETHERLANDS'  // Netherlands 🇳🇱 (Royal Orange / Red, White, Blue tricolor)
-  | 'JAPAN'        // Japan 🇯🇵 (Pure White / Navy accents / Crimson Sun disc)
-  | 'SPECIAL_GOLD';// 24K Championship Trophy Gold Ball (Wildcard / Superstar)
+export type BubbleColor = 'RED' | 'BLUE' | 'GREEN' | 'YELLOW' | 'PURPLE' | 'WHITE';
 
-export interface TeamColorDefinition {
-  id: SoccerTeamColor;
+export interface BubbleColorDef {
+  id: BubbleColor;
   name: string;
-  country: string;
-  flagEmoji: string;
-  primary: string;
-  secondary: string;
-  accent: string;
-  highlight: string;
-  shadow: string;
-  seamColor: string;
-  glow: string;
-  isSpecial?: boolean;
+  baseColor: string;
+  lightColor: string;
+  shadowColor: string;
+  glowColor: string;
 }
 
-export interface GridBall {
+export interface GridBubble {
   id: string;
-  color: SoccerTeamColor;
+  color: BubbleColor;
   row: number;
   col: number;
   x: number;
   y: number;
   radius: number;
+  popAnimationProgress?: number; // 0 to 1
+  isPopping?: boolean;
 }
 
-export interface ProjectileBall {
+export interface ProjectileBubble {
+  color: BubbleColor;
   x: number;
   y: number;
   vx: number;
   vy: number;
   radius: number;
-  color: SoccerTeamColor;
 }
 
-export interface FallingBall {
+export interface FallingBubble {
   id: string;
+  color: BubbleColor;
   x: number;
   y: number;
   vx: number;
   vy: number;
+  radius: number;
   rotation: number;
   vRot: number;
-  radius: number;
-  color: SoccerTeamColor;
-  scoreAwarded?: boolean;
+  alpha: number;
 }
 
-export interface SoccerParticle {
+export interface PopParticle {
   x: number;
   y: number;
   vx: number;
@@ -73,7 +56,6 @@ export interface SoccerParticle {
   color: string;
   alpha: number;
   decay: number;
-  shape?: 'circle' | 'spark' | 'star' | 'ring';
 }
 
 export interface FloatingScore {
@@ -81,77 +63,111 @@ export interface FloatingScore {
   text: string;
   x: number;
   y: number;
-  alpha: number;
   color: string;
-  fontSize: number;
-  isGoal?: boolean;
+  alpha: number;
+  scale: number;
+  durationMs: number;
+  createdAt: number;
 }
 
-export type SoccerGameState =
-  | 'LOADING'
+export interface TrajectoryPoint {
+  x: number;
+  y: number;
+}
+
+export interface TrajectorySegment {
+  points: TrajectoryPoint[];
+  reflectionPoint?: TrajectoryPoint;
+  targetCell?: { row: number; col: number; x: number; y: number };
+}
+
+export interface BubbleShooterLevel {
+  levelNumber: number;
+  name: string;
+  rows: (BubbleColor | null)[][]; // Hex rows (even: 8 cols, odd: 7 cols)
+  maxFouls: number; // Missed shots allowed before board descends
+  targetScore: number;
+  availableColors: BubbleColor[];
+  difficultyTier: 'Hard' | 'Hard+' | 'Advanced' | 'Very Hard' | 'Expert' | 'Expert+' | 'Extreme' | 'Master' | 'Championship';
+  parShots?: number;
+  targetTimeSeconds?: number;
+}
+
+export interface LevelSaveData {
+  stars: number;
+  highScore: number;
+  bestShots: number;
+  bestTimeSeconds: number;
+  performanceRating?: 'PERFECT' | 'EXCELLENT' | 'GREAT' | 'GOOD';
+  completedAt?: number;
+}
+
+export interface BubbleShooterStats {
+  gamesPlayed: number;
+  levelsCompleted: number;
+  totalShotsFired: number;
+  totalEffectiveShots: number;
+  totalMissedShots: number;
+  totalBubblesPopped: number;
+  totalBubblesDropped: number;
+  bestCombo: number;
+  bestTimeSeconds: number;
+  perfectLevelsCount: number;
+}
+
+export interface LevelScoreBreakdown {
+  levelNumber: number;
+  levelName: string;
+  difficultyTier: string;
+  basePopScore: number;
+  groupBonus: number;
+  comboBonus: number;
+  cascadeBonus: number;
+  dropBonus: number;
+  efficiencyBonus: number;
+  timeBonus: number;
+  precisionBonus: number;
+  difficultyBonus: number;
+  completionBonus: number;
+  missPenalty: number;
+  invalidPenalty: number;
+  finalLevelScore: number;
+  shotsUsed: number;
+  parShots: number;
+  effectiveShots: number;
+  missedShots: number;
+  timeTakenSeconds: number;
+  targetTimeSeconds: number;
+  avgShotTime: number;
+  stars: number;
+  performanceRating: 'PERFECT' | 'EXCELLENT' | 'GREAT' | 'GOOD';
+  isNewBest: boolean;
+  previousBest: number;
+  newCumulativeTotal: number;
+}
+
+export interface LevelProgress {
+  highestUnlockedLevel: number; // 1 to 40
+  completedLevels: Record<number, LevelSaveData>;
+  totalScore: number; // Cumulative sum of best scores of completed levels
+  stats?: BubbleShooterStats;
+}
+
+export type GameState =
+  | 'MAIN_MENU'
+  | 'LEVEL_SELECT'
+  | 'HOW_TO_PLAY'
+  | 'LEADERBOARD'
+  | 'ACHIEVEMENTS'
+  | 'STATISTICS'
+  | 'SETTINGS'
+  | 'ABOUT'
   | 'READY'
   | 'AIMING'
   | 'SHOOTING'
-  | 'RESOLVING'
-  | 'FOUL'
-  | 'ADDING_ROW'
-  | 'LEVEL_COMPLETE'
+  | 'RESOLVING_MATCH'
+  | 'DROPPING_CLUSTERS'
   | 'PAUSED'
-  | 'GAME_OVER';
-
-export interface SoccerLevelConfig {
-  levelNumber: number;
-  title: string;
-  subtitle: string;
-  availableColors: SoccerTeamColor[];
-  maxFouls: number;
-  targetScore: number;
-  shotLimit?: number;
-  rows: (SoccerTeamColor | null)[][];
-}
-
-export type SoccerShooterStatus = 'menu' | 'leaderboard' | 'level_select' | 'playing';
-
-export interface SoccerLevelRecord {
-  level: number;
-  unlocked: boolean;
-  completed: boolean;
-  bestScore: number;
-  stars: number;
-  shotsUsed?: number;
-  accuracyPercent?: number;
-  bestCombo?: number;
-}
-
-export interface LevelCompletionStats {
-  levelNumber: number;
-  successfulShots: number;
-  totalShots: number;
-  accuracyPercent: number;
-  bestCombo: number;
-  baseScore: number;
-  precisionBonus: number;
-  comboBonus: number;
-  difficultyBonus: number;
-  levelScore: number;
-  totalTournamentScore: number;
-  globalRank: string;
-  isNewUnlock: boolean;
-  unlockedLevelNumber?: number;
-}
-
-export interface TournamentLeaderboardEntry {
-  rank: number;
-  rankFormatted: string;
-  msisdn: string;
-  msisdnMasked: string;
-  score: number;
-  level: number;
-  isCurrentUser?: boolean;
-}
-
-export interface SoccerProgress {
-  highestUnlockedLevel: number;
-  completedLevels: Record<number, SoccerLevelRecord>;
-  totalScore: number;
-}
+  | 'LEVEL_COMPLETE'
+  | 'LEVEL_FAILED'
+  | 'CHAMPIONSHIP_COMPLETE';

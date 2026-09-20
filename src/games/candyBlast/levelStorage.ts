@@ -76,3 +76,112 @@ export function recordLevelCompletion(
 export function getTotalStarsEarned(progress: PlayerProgress): number {
   return Object.values(progress.records).reduce((sum, r) => sum + (r.stars || 0), 0);
 }
+
+export function getTotalCampaignScore(progress: PlayerProgress): number {
+  return Object.values(progress.records).reduce((sum, r) => sum + (r.highScore || 0), 0);
+}
+
+export function getCompletedLevelsCount(progress: PlayerProgress): number {
+  return Object.values(progress.records).filter((r) => r.completed).length;
+}
+
+export function resetPlayerProgress(): PlayerProgress {
+  const reset: PlayerProgress = {
+    unlockedLevel: 1,
+    records: {},
+  };
+  savePlayerProgress(reset);
+  return reset;
+}
+
+/**
+ * Mask MSISDN according to specifications:
+ * First 5 digits + '*****' + Last 2 digits
+ * e.g. 251911598830 -> 25191*****30
+ */
+export function formatMsisdnMasked(rawPhone?: string): string {
+  let clean = (rawPhone || '').replace(/\D/g, '');
+  if (clean.startsWith('09') && clean.length === 10) {
+    clean = '251' + clean.slice(1);
+  } else if (!clean.startsWith('251') && clean.length >= 9) {
+    clean = '251' + clean.slice(-9);
+  } else if (!clean) {
+    clean = '251911598830';
+  }
+
+  if (clean.length >= 7) {
+    const first5 = clean.slice(0, 5);
+    const last2 = clean.slice(-2);
+    return `${first5}*****${last2}`;
+  }
+  return '25191*****30';
+}
+
+export interface CandyLeaderboardEntry {
+  rank: number;
+  msisdnMasked: string;
+  score: number;
+  level: number;
+  stars: number;
+  isPlayer: boolean;
+}
+
+const SEED_CANDY_PLAYERS = [
+  { msisdnMasked: '25191*****18', score: 38450, level: 40, stars: 118 },
+  { msisdnMasked: '25191*****92', score: 35210, level: 38, stars: 110 },
+  { msisdnMasked: '25192*****41', score: 32670, level: 36, stars: 104 },
+  { msisdnMasked: '25193*****08', score: 29840, level: 33, stars: 95 },
+  { msisdnMasked: '25191*****77', score: 26500, level: 30, stars: 87 },
+  { msisdnMasked: '25192*****63', score: 23140, level: 27, stars: 78 },
+  { msisdnMasked: '25191*****25', score: 19820, level: 24, stars: 69 },
+  { msisdnMasked: '25193*****51', score: 16950, level: 21, stars: 58 },
+  { msisdnMasked: '25192*****89', score: 14200, level: 18, stars: 49 },
+  { msisdnMasked: '25191*****34', score: 11850, level: 15, stars: 41 },
+  { msisdnMasked: '25193*****62', score: 9420, level: 12, stars: 32 },
+  { msisdnMasked: '25191*****70', score: 7150, level: 9, stars: 24 },
+  { msisdnMasked: '25192*****15', score: 4890, level: 6, stars: 16 },
+  { msisdnMasked: '25193*****94', score: 2950, level: 4, stars: 9 },
+  { msisdnMasked: '25191*****05', score: 1420, level: 2, stars: 4 },
+];
+
+export function getCandyLeaderboard(
+  playerMsisdn: string,
+  playerScore: number,
+  playerLevel: number,
+  playerStars: number
+): { list: CandyLeaderboardEntry[]; userRank: number; userEntry: CandyLeaderboardEntry } {
+  const playerEntry: CandyLeaderboardEntry = {
+    rank: 0,
+    msisdnMasked: formatMsisdnMasked(playerMsisdn),
+    score: playerScore,
+    level: playerLevel,
+    stars: playerStars,
+    isPlayer: true,
+  };
+
+  const allEntries: CandyLeaderboardEntry[] = [
+    ...SEED_CANDY_PLAYERS.map((p) => ({
+      ...p,
+      rank: 0,
+      isPlayer: false,
+    })),
+    playerEntry,
+  ];
+
+  // Sort descending by score, tiebreak by level
+  allEntries.sort((a, b) => b.score - a.score || b.level - a.level);
+
+  let userRank = 1;
+  allEntries.forEach((entry, idx) => {
+    entry.rank = idx + 1;
+    if (entry.isPlayer) {
+      userRank = entry.rank;
+    }
+  });
+
+  return {
+    list: allEntries,
+    userRank,
+    userEntry: playerEntry,
+  };
+}

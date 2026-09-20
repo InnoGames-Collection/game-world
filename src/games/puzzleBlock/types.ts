@@ -34,6 +34,9 @@ export interface TrayPiece {
 }
 
 export type LevelDifficulty = 
+  | 'starter'
+  | 'easy'
+  | 'medium'
   | 'hard' 
   | 'hard+' 
   | 'very_hard' 

@@ -144,15 +144,53 @@ export function createShapeSegments(shapeType: ShapeType, scale: number = 1): Co
       break;
     }
 
+    case 'circle':
     case 'circle_ring': {
       const r = 75 * s;
-      // 4 quadrants: 0 to 90 deg, 90 to 180 deg, etc.
+      // 4 circular quadrants: 0 to 90 deg, 90 to 180 deg, 180 to 270 deg, 270 to 360 deg
       segments.push(
         { id: 'arc-0', color: COLOR_KEYS[0], type: 'arc', radius: r, startAngle: 0, endAngle: Math.PI / 2 },
         { id: 'arc-1', color: COLOR_KEYS[1], type: 'arc', radius: r, startAngle: Math.PI / 2, endAngle: Math.PI },
         { id: 'arc-2', color: COLOR_KEYS[2], type: 'arc', radius: r, startAngle: Math.PI, endAngle: 1.5 * Math.PI },
         { id: 'arc-3', color: COLOR_KEYS[3], type: 'arc', radius: r, startAngle: 1.5 * Math.PI, endAngle: 2 * Math.PI }
       );
+      break;
+    }
+
+    case 'rounded_square': {
+      const size = 66 * s;
+      const corner = 18 * s;
+      // 4 sides with rounded transition corners matching side colors
+      // Top:
+      segments.push({ id: 'top', color: COLOR_KEYS[0], type: 'line', x1: -size + corner, y1: -size, x2: size - corner, y2: -size });
+      segments.push({ id: 'c-tr', color: COLOR_KEYS[0], type: 'line', x1: size - corner, y1: -size, x2: size, y2: -size + corner });
+      // Right:
+      segments.push({ id: 'right', color: COLOR_KEYS[1], type: 'line', x1: size, y1: -size + corner, x2: size, y2: size - corner });
+      segments.push({ id: 'c-br', color: COLOR_KEYS[1], type: 'line', x1: size, y1: size - corner, x2: size - corner, y2: size });
+      // Bottom:
+      segments.push({ id: 'bottom', color: COLOR_KEYS[2], type: 'line', x1: size - corner, y1: size, x2: -size + corner, y2: size });
+      segments.push({ id: 'c-bl', color: COLOR_KEYS[2], type: 'line', x1: -size + corner, y1: size, x2: -size, y2: size - corner });
+      // Left:
+      segments.push({ id: 'left', color: COLOR_KEYS[3], type: 'line', x1: -size, y1: size - corner, x2: -size, y2: -size + corner });
+      segments.push({ id: 'c-tl', color: COLOR_KEYS[3], type: 'line', x1: -size, y1: -size + corner, x2: -size + corner, y2: -size });
+      break;
+    }
+
+    case 'octagon': {
+      const r = 76 * s;
+      for (let i = 0; i < 8; i++) {
+        const a1 = (i * 2 * Math.PI) / 8 - Math.PI / 8;
+        const a2 = ((i + 1) * 2 * Math.PI) / 8 - Math.PI / 8;
+        segments.push({
+          id: `oct-${i}`,
+          color: COLOR_KEYS[Math.floor(i / 2) % 4],
+          type: 'line',
+          x1: r * Math.cos(a1),
+          y1: r * Math.sin(a1),
+          x2: r * Math.cos(a2),
+          y2: r * Math.sin(a2),
+        });
+      }
       break;
     }
 
@@ -346,5 +384,43 @@ function pointToArcDistance(
   } else {
     // Wrap around 2*PI
     return angle >= s || angle <= e;
+  }
+}
+
+/**
+ * Shape Difficulty Bonus lookup
+ * Simple/common shapes: 0
+ * Less common / medium shapes: +2
+ * Difficult / complex shapes: +4
+ * Master / high-precision shapes: +5
+ */
+export function getShapeDifficultyBonus(shapeType: ShapeType): number {
+  switch (shapeType) {
+    case 'circle':
+    case 'circle_ring':
+    case 'square':
+    case 'rotated_square':
+      return 0; // Standard baseline
+    case 'rounded_square':
+    case 'rectangle':
+    case 'diamond':
+    case 'triangle':
+    case 'open_square':
+    case 'u_shape':
+    case 'c_shape':
+      return 2; // Medium difficulty
+    case 'hexagon':
+    case 'octagon':
+    case 'v_shape':
+    case 'inverted_v':
+    case 'cross':
+      return 4; // Difficult shape
+    case 'star_polygon':
+    case 'double_ring':
+    case 'concentric_square':
+    case 'horizontal_bars':
+      return 5; // Master complexity
+    default:
+      return 0;
   }
 }

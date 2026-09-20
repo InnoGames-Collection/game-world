@@ -1,314 +1,409 @@
 /**
- * Soccer Shooter - Hexagonal Grid & Physics Engine
- * Mathematically precise staggered hex-grid geometry, raycast trajectory with bank-shots,
- * neighbor adjacency, BFS cluster matching, and ceiling reachability traversal for falling drops.
+ * Hexagonal Grid Physics, Geometry, and Graph Algorithms for Bubble Shooter
  */
 
-import { GridBall, SoccerTeamColor } from './types';
+import { BubbleColor, GridBubble, TrajectoryPoint, TrajectorySegment } from './types';
 
 export const COLS_EVEN = 8;
 export const COLS_ODD = 7;
 export const MAX_GRID_ROWS = 14;
 
+export const BUBBLE_PALETTE: Record<
+  BubbleColor,
+  {
+    name: string;
+    base: string;
+    highlight: string;
+    shadow: string;
+    glow: string;
+    accent: string;
+  }
+> = {
+  RED: {
+    name: 'Germany',
+    base: '#DD0000',
+    highlight: '#FFA4A4',
+    shadow: '#500000',
+    glow: 'rgba(221, 0, 0, 0.45)',
+    accent: '#FFCE00',
+  },
+  BLUE: {
+    name: 'Argentina',
+    base: '#74ACDF',
+    highlight: '#B8DCFF',
+    shadow: '#2B6EA8',
+    glow: 'rgba(116, 172, 223, 0.45)',
+    accent: '#F6B40E',
+  },
+  GREEN: {
+    name: 'Ethiopia',
+    base: '#078930',
+    highlight: '#72D696',
+    shadow: '#034518',
+    glow: 'rgba(7, 137, 48, 0.45)',
+    accent: '#FCDD09',
+  },
+  YELLOW: {
+    name: 'Brazil',
+    base: '#FEDD00',
+    highlight: '#FFF38A',
+    shadow: '#A38800',
+    glow: 'rgba(254, 221, 0, 0.45)',
+    accent: '#009739',
+  },
+  PURPLE: {
+    name: 'France',
+    base: '#002654',
+    highlight: '#75A5FF',
+    shadow: '#001026',
+    glow: 'rgba(0, 38, 84, 0.45)',
+    accent: '#ED2939',
+  },
+  WHITE: {
+    name: 'England',
+    base: '#FFFFFF',
+    highlight: '#FFFFFF',
+    shadow: '#CBD5E1',
+    glow: 'rgba(206, 17, 36, 0.35)',
+    accent: '#CE1124',
+  },
+};
+
 /**
- * Returns number of columns in row (8 for even, 7 for odd)
+ * Returns number of columns for a given row in staggered hex grid
  */
 export function getColsInRow(row: number): number {
   return row % 2 === 0 ? COLS_EVEN : COLS_ODD;
 }
 
 /**
- * Calculates (x, y) center for a ball at grid (row, col)
+ * Authoritative single source of truth for playable Bubble Shooter metrics.
+ * Calculates bubble radius and exact side margin to fit COLS_EVEN (8) bubbles
+ * across the playable board with no cropping, symmetric margins, and crisp scale.
  */
-export function getBallCenter(
+export function calculateBoardMetrics(width: number): { radius: number; sideMargin: number } {
+  // Target small padding on left and right (~2-3% of width, min 6px)
+  const minMargin = Math.max(6, Math.floor(width * 0.025));
+  const availableForCols = width - 2 * minMargin;
+  // 8 columns with 2 * radius per column = 16 * radius
+  const calculatedRadius = Math.floor(availableForCols / (COLS_EVEN * 2));
+  // Bound radius to maintain comfortable touch scale while preventing oversized bubbles
+  const radius = Math.max(16, Math.min(calculatedRadius, 28));
+  // Symmetrically center the 8 columns across the board
+  const sideMargin = Math.max(4, Math.floor((width - radius * COLS_EVEN * 2) / 2));
+  return { radius, sideMargin };
+}
+
+/**
+ * Calculates center (x, y) for a bubble at (row, col)
+ * Follows strict 1:1 circular packed hexagonal geometry.
+ * Odd rows are staggered by exactly half bubble diameter (radius).
+ * Row height is exactly radius * sqrt(3).
+ * Symmetrically offset by sideMargin to keep full board boundary within view.
+ */
+export function getBubbleCenter(
   row: number,
   col: number,
   radius: number,
-  ceilingOffset: number = 0
+  ceilingOffset: number = 0,
+  sideMargin: number = 0
 ): { x: number; y: number } {
   const isEven = row % 2 === 0;
   const x = isEven
-    ? radius + col * (radius * 2)
-    : radius * 2 + col * (radius * 2);
+    ? sideMargin + radius + col * (radius * 2)
+    : sideMargin + radius * 2 + col * (radius * 2);
   const rowHeight = radius * Math.sqrt(3);
-  const y = radius + row * rowHeight + ceilingOffset;
+  const y = ceilingOffset + radius + row * rowHeight;
   return { x, y };
 }
 
 /**
- * Valid staggered hexagonal neighbors
+ * Returns valid neighbor coordinates for a cell (row, col)
  */
-export function getHexNeighborCoords(
-  row: number,
-  col: number
-): { r: number; c: number }[] {
+export function getHexNeighbors(row: number, col: number): { row: number; col: number }[] {
   const isEven = row % 2 === 0;
+  const neighbors: { row: number; col: number }[] = [];
+
+  // Left & Right
+  neighbors.push({ row, col: col - 1 });
+  neighbors.push({ row, col: col + 1 });
+
   if (isEven) {
-    return [
-      { r: row - 1, c: col - 1 },
-      { r: row - 1, c: col },
-      { r: row, c: col - 1 },
-      { r: row, c: col + 1 },
-      { r: row + 1, c: col - 1 },
-      { r: row + 1, c: col },
-    ];
+    // Top-Left and Top-Right
+    neighbors.push({ row: row - 1, col: col - 1 });
+    neighbors.push({ row: row - 1, col: col });
+    // Bottom-Left and Bottom-Right
+    neighbors.push({ row: row + 1, col: col - 1 });
+    neighbors.push({ row: row + 1, col: col });
   } else {
-    return [
-      { r: row - 1, c: col },
-      { r: row - 1, c: col + 1 },
-      { r: row, c: col - 1 },
-      { r: row, c: col + 1 },
-      { r: row + 1, c: col },
-      { r: row + 1, c: col + 1 },
-    ];
+    // Top-Left and Top-Right
+    neighbors.push({ row: row - 1, col: col });
+    neighbors.push({ row: row - 1, col: col + 1 });
+    // Bottom-Left and Bottom-Right
+    neighbors.push({ row: row + 1, col: col });
+    neighbors.push({ row: row + 1, col: col + 1 });
   }
+
+  // Filter within valid grid bounds
+  return neighbors.filter(
+    (n) => n.row >= 0 && n.row < MAX_GRID_ROWS && n.col >= 0 && n.col < getColsInRow(n.row)
+  );
 }
 
 /**
- * Returns all active ball neighbors for a given cell
- */
-export function getBallNeighbors(
-  row: number,
-  col: number,
-  grid: (GridBall | null)[][]
-): GridBall[] {
-  const neighbors: GridBall[] = [];
-  const coords = getHexNeighborCoords(row, col);
-
-  for (const { r, c } of coords) {
-    if (r >= 0 && r < MAX_GRID_ROWS && c >= 0 && c < getColsInRow(r)) {
-      const neighbor = grid[r]?.[c];
-      if (neighbor) {
-        neighbors.push(neighbor);
-      }
-    }
-  }
-  return neighbors;
-}
-
-/**
- * BFS to find connected matching balls (3 or more)
- * Special golden ball matches any color!
- */
-export function findMatchingCluster(
-  startRow: number,
-  startCol: number,
-  grid: (GridBall | null)[][]
-): GridBall[] {
-  const root = grid[startRow]?.[startCol];
-  if (!root) return [];
-
-  const targetColor = root.color;
-  const isWildcard = targetColor === 'SPECIAL_GOLD';
-
-  const visited = new Set<string>();
-  const queue: { r: number; c: number }[] = [{ r: startRow, c: startCol }];
-  const cluster: GridBall[] = [];
-
-  visited.add(`${startRow},${startCol}`);
-  cluster.push(root);
-
-  while (queue.length > 0) {
-    const curr = queue.shift()!;
-    const neighbors = getBallNeighbors(curr.r, curr.c, grid);
-
-    for (const n of neighbors) {
-      const key = `${n.row},${n.col}`;
-      if (!visited.has(key)) {
-        // Match condition: same team color OR wildcard golden ball
-        const matches =
-          isWildcard ||
-          n.color === targetColor ||
-          n.color === 'SPECIAL_GOLD';
-
-        if (matches) {
-          visited.add(key);
-          cluster.push(n);
-          queue.push({ r: n.row, c: n.col });
-        }
-      }
-    }
-  }
-
-  // If wildcard triggered match with surrounding neighbors, ensure at least 3
-  return cluster.length >= 3 ? cluster : [];
-}
-
-/**
- * Identifies all balls no longer connected to the ceiling (Row 0)
- * These balls fall down into the goalmouth for bonus points!
- */
-export function findFloatingBalls(grid: (GridBall | null)[][]): GridBall[] {
-  const connected = new Set<string>();
-  const queue: { r: number; c: number }[] = [];
-
-  // 1. Seed queue with all row 0 balls
-  const row0Cols = getColsInRow(0);
-  for (let c = 0; c < row0Cols; c++) {
-    const b = grid[0]?.[c];
-    if (b) {
-      const key = `0,${c}`;
-      connected.add(key);
-      queue.push({ r: 0, c });
-    }
-  }
-
-  // 2. BFS through all connected balls
-  while (queue.length > 0) {
-    const curr = queue.shift()!;
-    const neighbors = getBallNeighbors(curr.r, curr.c, grid);
-    for (const n of neighbors) {
-      const key = `${n.row},${n.col}`;
-      if (!connected.has(key)) {
-        connected.add(key);
-        queue.push({ r: n.row, c: n.col });
-      }
-    }
-  }
-
-  // 3. Any active ball not in 'connected' is floating
-  const floating: GridBall[] = [];
-  for (let r = 0; r < grid.length; r++) {
-    const cols = getColsInRow(r);
-    for (let c = 0; c < cols; c++) {
-      const b = grid[r]?.[c];
-      if (b && !connected.has(`${r},${c}`)) {
-        floating.push(b);
-      }
-    }
-  }
-
-  return floating;
-}
-
-/**
- * Snaps projectile to the best valid vacant hexagonal grid cell
+ * Find the closest vacant valid hex cell for a projectile that has collided
  */
 export function findSnapCell(
   projX: number,
   projY: number,
-  grid: (GridBall | null)[][],
+  grid: (GridBubble | null)[][],
   radius: number,
-  ceilingOffset: number = 0
+  ceilingOffset: number = 0,
+  sideMargin: number = 0
 ): { row: number; col: number } | null {
-  let bestRow = -1;
-  let bestCol = -1;
-  let minDistanceSq = Infinity;
+  let bestCell: { row: number; col: number } | null = null;
+  let bestDistSq = Infinity;
 
-  // Search through rows
+  // Search candidate vacant cells
   for (let r = 0; r < MAX_GRID_ROWS; r++) {
     const cols = getColsInRow(r);
     for (let c = 0; c < cols; c++) {
-      if (grid[r]?.[c] !== null) continue; // Already occupied
+      if (grid[r] && grid[r][c] !== null) continue; // Already occupied
 
-      // Cell must either be in top row (r === 0) or adjacent to an existing ball
-      const neighbors = getBallNeighbors(r, c, grid);
-      if (r > 0 && neighbors.length === 0) continue;
+      // If row 0, it is anchored to ceiling; otherwise, it MUST have at least one occupied neighbor
+      if (r > 0) {
+        const neighbors = getHexNeighbors(r, c);
+        const hasOccupiedNeighbor = neighbors.some(
+          (n) => grid[n.row] && grid[n.row][n.col] !== null
+        );
+        if (!hasOccupiedNeighbor) continue;
+      }
 
-      const { x: cx, y: cy } = getBallCenter(r, c, radius, ceilingOffset);
-      const dx = projX - cx;
-      const dy = projY - cy;
+      const { x, y } = getBubbleCenter(r, c, radius, ceilingOffset, sideMargin);
+      const dx = projX - x;
+      const dy = projY - y;
       const distSq = dx * dx + dy * dy;
 
-      if (distSq < minDistanceSq) {
-        minDistanceSq = distSq;
-        bestRow = r;
-        bestCol = c;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        bestCell = { row: r, col: c };
       }
     }
   }
 
-  if (bestRow !== -1 && bestCol !== -1) {
-    return { row: bestRow, col: bestCol };
-  }
-  return null;
-}
-
-export interface TrajectoryPath {
-  points: { x: number; y: number }[];
-  reflectionPoint: { x: number; y: number } | null;
+  return bestCell;
 }
 
 /**
- * Calculates aiming trajectory with wall bank reflection
+ * Find all matching connected bubbles of the same color starting at (startRow, startCol)
  */
-export function calculateTrajectory(
-  startX: number,
-  startY: number,
-  angle: number,
-  grid: (GridBall | null)[][],
-  boardWidth: number,
-  radius: number,
-  ceilingOffset: number = 0
-): TrajectoryPath {
-  const points: { x: number; y: number }[] = [{ x: startX, y: startY }];
-  let reflectionPoint: { x: number; y: number } | null = null;
+export function findMatchingCluster(
+  startRow: number,
+  startCol: number,
+  grid: (GridBubble | null)[][]
+): { row: number; col: number }[] {
+  const startBubble = grid[startRow]?.[startCol];
+  if (!startBubble) return [];
 
-  let x = startX;
-  let y = startY;
-  let vx = Math.cos(angle) * 7;
-  let vy = Math.sin(angle) * 7;
+  const targetColor = startBubble.color;
+  const visited = new Set<string>();
+  const matchGroup: { row: number; col: number }[] = [];
+  const queue: { row: number; col: number }[] = [{ row: startRow, col: startCol }];
+  visited.add(`${startRow},${startCol}`);
 
-  const leftWall = radius;
-  const rightWall = boardWidth - radius;
-  let hasReflected = false;
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    matchGroup.push(current);
 
-  for (let step = 0; step < 260; step++) {
-    x += vx;
-    y += vy;
-
-    // Wall bounce
-    if (!hasReflected) {
-      if (x <= leftWall) {
-        x = leftWall;
-        vx = -vx;
-        hasReflected = true;
-        reflectionPoint = { x, y };
-        points.push({ x, y });
-      } else if (x >= rightWall) {
-        x = rightWall;
-        vx = -vx;
-        hasReflected = true;
-        reflectionPoint = { x, y };
-        points.push({ x, y });
+    const neighbors = getHexNeighbors(current.row, current.col);
+    for (const nb of neighbors) {
+      const key = `${nb.row},${nb.col}`;
+      if (!visited.has(key)) {
+        visited.add(key);
+        const nbBubble = grid[nb.row]?.[nb.col];
+        if (nbBubble && nbBubble.color === targetColor) {
+          queue.push(nb);
+        }
       }
     }
+  }
 
-    // Ceiling hit
-    if (y <= radius + ceilingOffset + 2) {
-      points.push({ x, y: radius + ceilingOffset + 2 });
+  return matchGroup;
+}
+
+/**
+ * Find all floating/unsupported bubbles disconnected from row 0
+ */
+export function findDisconnectedBubbles(
+  grid: (GridBubble | null)[][]
+): { row: number; col: number; bubble: GridBubble }[] {
+  const anchored = new Set<string>();
+  const queue: { row: number; col: number }[] = [];
+
+  // Seed with all bubbles in row 0
+  const cols0 = getColsInRow(0);
+  for (let c = 0; c < cols0; c++) {
+    if (grid[0] && grid[0][c] !== null) {
+      anchored.add(`0,${c}`);
+      queue.push({ row: 0, col: c });
+    }
+  }
+
+  // BFS flood-fill anchor reachability
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    const neighbors = getHexNeighbors(curr.row, curr.col);
+
+    for (const nb of neighbors) {
+      const key = `${nb.row},${nb.col}`;
+      if (!anchored.has(key)) {
+        const nbBubble = grid[nb.row]?.[nb.col];
+        if (nbBubble !== null && nbBubble !== undefined) {
+          anchored.add(key);
+          queue.push(nb);
+        }
+      }
+    }
+  }
+
+  // Any occupied bubble NOT in anchored is unsupported
+  const unsupported: { row: number; col: number; bubble: GridBubble }[] = [];
+  for (let r = 0; r < grid.length; r++) {
+    const cols = getColsInRow(r);
+    for (let c = 0; c < cols; c++) {
+      const bubble = grid[r]?.[c];
+      if (bubble) {
+        if (!anchored.has(`${r},${c}`)) {
+          unsupported.push({ row: r, col: c, bubble });
+        }
+      }
+    }
+  }
+
+  return unsupported;
+}
+
+/**
+ * Ray vs Circle intersection test
+ */
+function rayCircleIntersection(
+  ox: number,
+  oy: number,
+  dx: number,
+  dy: number,
+  cx: number,
+  cy: number,
+  r: number
+): number | null {
+  const fx = ox - cx;
+  const fy = oy - cy;
+
+  const a = dx * dx + dy * dy;
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - r * r;
+
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) return null;
+
+  const sqrtD = Math.sqrt(discriminant);
+  const t1 = (-b - sqrtD) / (2 * a);
+  const t2 = (-b + sqrtD) / (2 * a);
+
+  if (t1 > 0) return t1;
+  if (t2 > 0) return t2;
+  return null;
+}
+
+/**
+ * Predict aiming trajectory with mathematically accurate side-wall bank shot reflection
+ */
+export function calculateTrajectory(
+  originX: number,
+  originY: number,
+  angleRad: number, // Direction angle (negative y)
+  grid: (GridBubble | null)[][],
+  boardWidth: number,
+  radius: number,
+  ceilingOffset: number = 0,
+  sideMargin: number = 0
+): TrajectorySegment {
+  const points: TrajectoryPoint[] = [{ x: originX, y: originY }];
+  let curX = originX;
+  let curY = originY;
+  let vx = Math.cos(angleRad);
+  let vy = Math.sin(angleRad);
+
+  const leftWall = sideMargin + radius;
+  const rightWall = boardWidth - sideMargin - radius;
+  const ceilingY = radius + ceilingOffset;
+
+  let reflectionPoint: TrajectoryPoint | undefined = undefined;
+
+  // Segment 1: from launcher towards target / first wall
+  const stepDist = 8;
+  let maxSteps = 160;
+
+  for (let step = 0; step < maxSteps; step++) {
+    const nextX = curX + vx * stepDist;
+    const nextY = curY + vy * stepDist;
+
+    // Check collision with ceiling
+    if (nextY <= ceilingY) {
+      points.push({ x: nextX, y: ceilingY });
       break;
     }
 
-    // Ball collision check
-    let hitBall = false;
+    // Check collision with side walls
+    if (nextX <= leftWall && vx < 0) {
+      // Wall bank on left
+      const frac = (leftWall - curX) / (nextX - curX);
+      const hitY = curY + (nextY - curY) * frac;
+      reflectionPoint = { x: leftWall, y: hitY };
+      points.push(reflectionPoint);
+      curX = leftWall;
+      curY = hitY;
+      vx = -vx; // Reflect horizontally
+      continue;
+    } else if (nextX >= rightWall && vx > 0) {
+      // Wall bank on right
+      const frac = (rightWall - curX) / (nextX - curX);
+      const hitY = curY + (nextY - curY) * frac;
+      reflectionPoint = { x: rightWall, y: hitY };
+      points.push(reflectionPoint);
+      curX = rightWall;
+      curY = hitY;
+      vx = -vx; // Reflect horizontally
+      continue;
+    }
+
+    // Check collision with any existing bubble
+    let hitBubble = false;
     for (let r = 0; r < grid.length; r++) {
       const cols = getColsInRow(r);
       for (let c = 0; c < cols; c++) {
-        const b = grid[r]?.[c];
-        if (!b) continue;
+        const bubble = grid[r]?.[c];
+        if (!bubble) continue;
 
-        const dx = x - b.x;
-        const dy = y - b.y;
-        const distSq = dx * dx + dy * dy;
-        const collisionRadius = radius * 1.85;
-
+        const bCenter = getBubbleCenter(r, c, radius, ceilingOffset, sideMargin);
+        const distSq =
+          (nextX - bCenter.x) * (nextX - bCenter.x) + (nextY - bCenter.y) * (nextY - bCenter.y);
+        const collisionRadius = radius * 1.88; // Tactile collision contact threshold
         if (distSq <= collisionRadius * collisionRadius) {
-          hitBall = true;
+          hitBubble = true;
           break;
         }
       }
-      if (hitBall) break;
+      if (hitBubble) break;
     }
 
-    if (hitBall) {
-      points.push({ x, y });
+    if (hitBubble) {
+      points.push({ x: nextX, y: nextY });
       break;
     }
 
-    if (step % 2 === 0) {
-      points.push({ x, y });
-    }
+    points.push({ x: nextX, y: nextY });
+    curX = nextX;
+    curY = nextY;
   }
 
   return { points, reflectionPoint };

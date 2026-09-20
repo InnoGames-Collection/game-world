@@ -19,6 +19,8 @@ import {
   Trophy,
   Star,
   ChevronRight,
+  ChevronDown,
+  ListOrdered,
   Lock,
   BarChart2,
   Settings,
@@ -39,7 +41,7 @@ import {
   DEFAULT_PLAYER_TEAM,
   DEFAULT_OPPONENT_TEAM,
 } from './soccerTeams';
-import { SoccerPitchCanvas } from './SoccerPitchCanvas';
+import { SoccerPitchCanvas, SoccerPitchCanvasHandle } from './SoccerPitchCanvas';
 import { soccerAudio } from './soccerAudio';
 import { getChampionshipStandings } from './leagueStandings';
 import { INITIAL_TROPHIES, evaluateTrophies } from './soccerTrophies';
@@ -162,25 +164,26 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
   const currentLevelConfig: SoccerLevelConfig =
     SOCCER_LEVELS[currentLevelIndex] || SOCCER_LEVELS[0];
 
-  // Helper: check if a level is unlocked
+  // Helper: check if a level is unlocked (Sequential Level 1 -> 40 unlock)
   const isLevelUnlocked = (levelNumber: number) => {
     if (levelNumber === 1) return true;
-    const prevLevelCompleted = progress.completedLevels.includes(levelNumber - 1);
-    const cfg = SOCCER_LEVELS[levelNumber - 1];
-    const scoreRequirementMet =
-      progress.currentTotalScore >= (cfg?.requiredCumulativeScore || 0);
-    return prevLevelCompleted && scoreRequirementMet;
+    return progress.completedLevels.includes(levelNumber - 1);
   };
 
-  // Selected Player Team & Opponent Team
+  // Independent Country Flags for Human (YOU) & AI (COMPUTER)
+  const [selectedPlayerTeamId, setSelectedPlayerTeamId] = useState<string>(() => {
+    return progress.selectedTeamId || 'country-ethiopia';
+  });
+  const [selectedOpponentTeamId, setSelectedOpponentTeamId] = useState<string>('country-brazil');
+  const [countryPickerSide, setCountryPickerSide] = useState<'YOU' | 'AI' | null>(null);
+
   const playerTeam: SoccerTeam = useMemo(() => {
-    return SOCCER_TEAMS.find((t) => t.id === progress.selectedTeamId) || DEFAULT_PLAYER_TEAM;
-  }, [progress.selectedTeamId]);
+    return SOCCER_TEAMS.find((t) => t.id === selectedPlayerTeamId) || DEFAULT_PLAYER_TEAM;
+  }, [selectedPlayerTeamId]);
 
   const opponentTeam: SoccerTeam = useMemo(() => {
-    const oppTeams = SOCCER_TEAMS.filter((t) => t.id !== playerTeam.id);
-    return oppTeams[currentLevelIndex % oppTeams.length] || DEFAULT_OPPONENT_TEAM;
-  }, [playerTeam, currentLevelIndex]);
+    return SOCCER_TEAMS.find((t) => t.id === selectedOpponentTeamId) || DEFAULT_OPPONENT_TEAM;
+  }, [selectedOpponentTeamId]);
 
   // Active Match State
   const [playerGoals, setPlayerGoals] = useState<number>(0);
@@ -201,6 +204,43 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
   const matchStartTime = useRef<number>(Date.now());
   const statsCounters = useRef({ perfectHits: 0, goodHits: 0, powerKicks: 0 });
   const matchEndedRef = useRef<boolean>(false);
+  const pitchCanvasRef = useRef<SoccerPitchCanvasHandle>(null);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState<boolean>(false);
+
+  // Synchronous game stats tracking to avoid stale closures & render-time updates
+  const playerGoalsRef = useRef<number>(0);
+  const computerGoalsRef = useRef<number>(0);
+  const levelScoreRef = useRef<number>(0);
+  const highestMatchRallyRef = useRef<number>(0);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Safely trigger confirmation modal when BACK is pressed during an active match
+  const handleBackFromMatch = () => {
+    setShowExitConfirmModal(true);
+  };
+
+  const handleConfirmExit = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    matchEndedRef.current = true;
+    setShowExitConfirmModal(false);
+    setGameState('HUB');
+  };
+
+  const handleCancelExit = () => {
+    setShowExitConfirmModal(false);
+  };
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, []);
 
   // Sync sound settings
   useEffect(() => {
@@ -262,7 +302,17 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
   };
 
   const startMatchCountdown = () => {
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+
     matchEndedRef.current = false;
+    playerGoalsRef.current = 0;
+    computerGoalsRef.current = 0;
+    levelScoreRef.current = 0;
+    highestMatchRallyRef.current = 0;
+
     setPlayerGoals(0);
     setComputerGoals(0);
     setLevelScore(0);
@@ -279,7 +329,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
     soccerAudio.playBounce(0.5);
 
     let step = 3;
-    const interval = setInterval(() => {
+    countdownIntervalRef.current = setInterval(() => {
       if (step === 3) {
         setCountdownNum(3);
         soccerAudio.playBounce(0.6);
@@ -293,7 +343,10 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
         setCountdownNum('KICK OFF!');
         soccerAudio.playWhistle();
       } else {
-        clearInterval(interval);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
         setGameState('PLAYING');
       }
       step--;
@@ -309,7 +362,8 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
     if (matchEndedRef.current) return;
 
     // Award progression skill points for successful human kick & rally
-    setLevelScore((prev) => prev + points);
+    levelScoreRef.current += points;
+    setLevelScore(levelScoreRef.current);
 
     if (quality === 'PERFECT') statsCounters.current.perfectHits++;
     else if (quality === 'GOOD') statsCounters.current.goodHits++;
@@ -323,22 +377,18 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
   const handlePlayerMiss = () => {
     if (matchEndedRef.current) return;
 
-    setComputerGoals((prevComp) => {
-      const nextCompGoals = prevComp + 1;
-      setLives((prevLives) => {
-        const nextLives = prevLives - 1;
-        if (
-          !matchEndedRef.current &&
-          (nextLives <= 0 || nextCompGoals >= currentLevelConfig.targetGoals)
-        ) {
-          matchEndedRef.current = true;
-          setTimeout(() => handleLevelLoss(), 400);
-          return 0;
-        }
-        return nextLives;
-      });
-      return nextCompGoals;
-    });
+    computerGoalsRef.current += 1;
+    const nextCompGoals = computerGoalsRef.current;
+    setComputerGoals(nextCompGoals);
+    setLives((prevLives) => Math.max(0, prevLives - 1));
+
+    // Match Loss Condition: Computer reaches target goals!
+    if (nextCompGoals >= currentLevelConfig.targetGoals) {
+      matchEndedRef.current = true;
+      setTimeout(() => {
+        handleLevelLoss();
+      }, 400);
+    }
   };
 
   // If computer fails to defend -> PLAYER SCORES A GOAL!
@@ -346,95 +396,106 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
     if (matchEndedRef.current) return;
 
     // Add goal bonus to progression score
-    setLevelScore((prev) => prev + goalPoints);
+    levelScoreRef.current += goalPoints;
+    setLevelScore(levelScoreRef.current);
 
-    setPlayerGoals((prevPlayer) => {
-      const nextPlayerGoals = prevPlayer + 1;
-      // Match Win Condition: Player reaches target goals!
-      if (!matchEndedRef.current && nextPlayerGoals >= currentLevelConfig.targetGoals) {
-        matchEndedRef.current = true;
-        setTimeout(() => handleLevelWin(levelScore + goalPoints), 400);
-      }
-      return nextPlayerGoals;
-    });
+    playerGoalsRef.current += 1;
+    const nextPlayerGoals = playerGoalsRef.current;
+    setPlayerGoals(nextPlayerGoals);
+
+    // Match Win Condition: Player reaches target goals!
+    if (nextPlayerGoals >= currentLevelConfig.targetGoals) {
+      matchEndedRef.current = true;
+      const finalMatchScore = levelScoreRef.current;
+      setTimeout(() => {
+        handleLevelWin(finalMatchScore);
+      }, 400);
+    }
   };
 
   const handleRallyIncrement = (rally: number) => {
     setMatchRally(rally);
-    setHighestMatchRally((prev) => Math.max(prev, rally));
+    if (rally > highestMatchRallyRef.current) {
+      highestMatchRallyRef.current = rally;
+      setHighestMatchRally(rally);
+    }
   };
 
   // Level Won (Guaranteed to execute exactly once per match completion)
   const handleLevelWin = (finalScore: number) => {
-    setGameState((current) => {
-      if (current === 'RESULT_WIN' || current === 'RESULT_LOSS') return current;
+    let stars = 1;
+    const finalCompGoals = computerGoalsRef.current;
+    const finalRally = highestMatchRallyRef.current;
 
-      let stars = 1;
-      if (lives === currentLevelConfig.livesAllowed || highestMatchRally >= currentLevelConfig.targetRally + 3) {
-        stars = 3;
-      } else if (lives >= Math.max(1, currentLevelConfig.livesAllowed - 1)) {
-        stars = 2;
-      }
-      setStarsEarned(stars);
+    if (finalCompGoals === 0 || finalRally >= currentLevelConfig.targetRally + 2) {
+      stars = 3;
+    } else if (finalCompGoals <= Math.floor(currentLevelConfig.targetGoals / 2)) {
+      stars = 2;
+    }
+    setStarsEarned(stars);
 
-      // Carried-forward score persists across all completed levels!
-      const newTotalScore = progress.currentTotalScore + finalScore;
-      const newBestTotal = Math.max(progress.bestTotalScore, newTotalScore);
-      const nextUnlocked = Math.max(progress.unlockedLevel, Math.min(20, currentLevelConfig.level + 1));
-      const completedSet = new Set(progress.completedLevels);
-      completedSet.add(currentLevelConfig.level);
+    // Carried-forward score persists across all completed levels!
+    const newTotalScore = progress.currentTotalScore + finalScore;
+    const newBestTotal = Math.max(progress.bestTotalScore, newTotalScore);
+    const nextUnlocked = Math.max(progress.unlockedLevel, Math.min(40, currentLevelConfig.level + 1));
+    const completedSet = new Set(progress.completedLevels);
+    completedSet.add(currentLevelConfig.level);
 
-      const updatedTrophies = evaluateTrophies(progress, highestMatchRally, lives);
+    const updatedTrophies = evaluateTrophies(progress, finalRally, lives);
 
-      const updatedProg: PlayerProgress = {
-        ...progress,
-        unlockedLevel: nextUnlocked,
-        completedLevels: Array.from(completedSet),
-        currentTotalScore: newTotalScore, // Carried forward!
-        bestTotalScore: newBestTotal,
-        bestScores: {
-          ...progress.bestScores,
-          [currentLevelConfig.level]: Math.max(
-            progress.bestScores[currentLevelConfig.level] || 0,
-            finalScore
-          ),
-        },
-        stars: {
-          ...progress.stars,
-          [currentLevelConfig.level]: Math.max(progress.stars[currentLevelConfig.level] || 0, stars),
-        },
-        highestRallyOverall: Math.max(progress.highestRallyOverall, highestMatchRally),
-        winStreak: progress.winStreak + 1,
-        totalMatchesPlayed: progress.totalMatchesPlayed + 1,
-        totalWins: progress.totalWins + 1,
-        totalReturnsCompleted: progress.totalReturnsCompleted + matchRally,
-        unlockedTrophies: updatedTrophies,
-      };
+    const updatedProg: PlayerProgress = {
+      ...progress,
+      unlockedLevel: nextUnlocked,
+      completedLevels: Array.from(completedSet),
+      currentTotalScore: newTotalScore, // Carried forward!
+      bestTotalScore: newBestTotal,
+      bestScores: {
+        ...progress.bestScores,
+        [currentLevelConfig.level]: Math.max(
+          progress.bestScores[currentLevelConfig.level] || 0,
+          finalScore
+        ),
+      },
+      stars: {
+        ...progress.stars,
+        [currentLevelConfig.level]: Math.max(progress.stars[currentLevelConfig.level] || 0, stars),
+      },
+      highestRallyOverall: Math.max(progress.highestRallyOverall, finalRally),
+      winStreak: progress.winStreak + 1,
+      totalMatchesPlayed: progress.totalMatchesPlayed + 1,
+      totalWins: progress.totalWins + 1,
+      totalReturnsCompleted: progress.totalReturnsCompleted + matchRally,
+      unlockedTrophies: updatedTrophies,
+    };
 
-      saveProgress(updatedProg);
+    saveProgress(updatedProg);
+    setGameState('RESULT_WIN');
+    soccerAudio.playVictoryFanfare();
 
-      const matchDuration = Math.max(1, Math.floor((Date.now() - matchStartTime.current) / 1000));
+    const matchDuration = Math.max(1, Math.floor((Date.now() - matchStartTime.current) / 1000));
+    // Asynchronously notify parent App container outside of React's render/updater phase
+    setTimeout(() => {
       onGameOver(newTotalScore, matchDuration);
-      soccerAudio.playVictoryFanfare();
-
-      return 'RESULT_WIN';
-    });
+    }, 0);
   };
 
   // Level Lost (Guaranteed to execute exactly once)
   const handleLevelLoss = () => {
-    setGameState((current) => {
-      if (current === 'RESULT_WIN' || current === 'RESULT_LOSS') return current;
-
-      saveProgress({
-        ...progress,
-        winStreak: 0,
-        totalMatchesPlayed: progress.totalMatchesPlayed + 1,
-        totalLosses: progress.totalLosses + 1,
-      });
-      soccerAudio.playDefeatSound();
-      return 'RESULT_LOSS';
+    saveProgress({
+      ...progress,
+      winStreak: 0,
+      totalMatchesPlayed: progress.totalMatchesPlayed + 1,
+      totalLosses: progress.totalLosses + 1,
     });
+    setGameState('RESULT_LOSS');
+    soccerAudio.playDefeatSound();
+
+    const matchDuration = Math.max(1, Math.floor((Date.now() - matchStartTime.current) / 1000));
+    const finalScore = progress.currentTotalScore + levelScoreRef.current;
+    // Asynchronously notify parent App container outside of React's render/updater phase
+    setTimeout(() => {
+      onGameOver(finalScore, matchDuration);
+    }, 0);
   };
 
   // Advance to Next Level
@@ -607,7 +668,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
   }
 
   // =========================================================================
-  // VIEW 2: CHAMPIONSHIP & 20 LEVELS
+  // VIEW 2: CHAMPIONSHIP & 40 LEVELS
   // =========================================================================
   if (gameState === 'CHAMPIONSHIP') {
     const standings = getChampionshipStandings(playerTeam.id, progress);
@@ -628,14 +689,14 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
               SOCCER PING-PONG CHAMPIONSHIP
             </h2>
             <span className="text-[11px] text-cyan-300 font-bold">
-              Level {progress.unlockedLevel}/20 • Score: {progress.currentTotalScore.toLocaleString()}
+              Level {progress.unlockedLevel}/40 • Score: {progress.currentTotalScore.toLocaleString()}
             </span>
           </div>
 
           <div className="w-10" />
         </header>
 
-        {/* Tab Toggle: League Standings vs 20 Levels */}
+        {/* Tab Toggle: League Standings vs 40 Levels */}
         <div className="max-w-md mx-auto w-full px-4 pt-3">
           <div className="grid grid-cols-2 p-1 rounded-2xl bg-white/5 border border-white/10 text-xs font-black uppercase">
             <button
@@ -652,7 +713,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
                 champTab === 'LEVELS' ? 'bg-[#0284c7] text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
-              ALL 20 LEVELS
+              ALL 40 LEVELS
             </button>
           </div>
         </div>
@@ -760,9 +821,9 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
                         <span className="text-[10px] text-cyan-300 font-bold block mt-0.5">
                           Target: {lvl.targetGoals} Goals • {lvl.targetRally} Rally
                         </span>
-                        {!isUnlocked && lvl.requiredCumulativeScore > 0 && (
-                          <span className="text-[9.5px] text-slate-400 block font-mono">
-                            Req: Level {lvl.level - 1} + {lvl.requiredCumulativeScore.toLocaleString()} pts
+                        {!isUnlocked && (
+                          <span className="text-[10px] text-amber-400 font-bold block mt-0.5">
+                            🔒 Complete Level {lvl.level - 1} to Unlock
                           </span>
                         )}
                       </div>
@@ -828,10 +889,10 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
 
               <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-2.5 text-xs">
                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
-                  UNLOCK REQUIREMENTS:
+                  UNLOCK REQUIREMENT:
                 </span>
 
-                {/* Requirement 1: Previous level */}
+                {/* Sequential Requirement: Complete Previous level */}
                 <div className="flex items-start gap-2">
                   {progress.completedLevels.includes(lockedModalLevel.level - 1) ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
@@ -845,28 +906,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
                     <span className="text-[10px] text-slate-400 block">
                       {progress.completedLevels.includes(lockedModalLevel.level - 1)
                         ? 'Completed ✓'
-                        : `You must beat Level ${lockedModalLevel.level - 1} first`}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Requirement 2: Cumulative score */}
-                <div className="flex items-start gap-2">
-                  {progress.currentTotalScore >= lockedModalLevel.requiredCumulativeScore ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <XCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <span className="font-bold text-white">
-                      Cumulative Score: {lockedModalLevel.requiredCumulativeScore.toLocaleString()} pts
-                    </span>
-                    <span className="text-[10px] text-slate-400 block font-mono">
-                      Your Career Score: {progress.currentTotalScore.toLocaleString()} pts (
-                      {progress.currentTotalScore >= lockedModalLevel.requiredCumulativeScore
-                        ? 'Target Reached ✓'
-                        : `${(lockedModalLevel.requiredCumulativeScore - progress.currentTotalScore).toLocaleString()} more pts needed`}
-                      )
+                        : `You must win Level ${lockedModalLevel.level - 1} to unlock this stage`}
                     </span>
                   </div>
                 </div>
@@ -1064,7 +1104,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
               <div className="flex items-center gap-1 mt-1">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                 <span className="text-lg font-black text-amber-300 font-mono">
-                  {totalStars} / 60
+                  {totalStars} / 120
                 </span>
               </div>
             </div>
@@ -1077,7 +1117,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
             </div>
             <div className="flex justify-between py-1 border-b border-white/10">
               <span className="text-slate-400">Completed Levels</span>
-              <span className="font-bold text-cyan-300">{progress.completedLevels.length} / 20</span>
+              <span className="font-bold text-cyan-300">{progress.completedLevels.length} / 40</span>
             </div>
             <div className="flex justify-between py-1">
               <span className="text-slate-400">Career Best Total</span>
@@ -1182,10 +1222,55 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
           </div>
 
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-            <h3 className="text-xs font-black uppercase text-slate-400">DEFENSIVE CONTROLS</h3>
+            <h3 className="text-xs font-black uppercase text-slate-400">CONTROLS</h3>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Touch and swipe across the pitch to reposition your platform between Left Wing, Center, and Right Wing. Tap the KICK button when the ball reaches your strike zone.
+              One-handed horizontal swipe: swipe left or right across the field to position your player. When the incoming ball enters your strike zone, the same swipe gesture automatically returns the ball with directional placement. No kick button required!
             </p>
+          </div>
+
+          {/* Secondary Views Access (Moved away from primary pre-match screen) */}
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2.5">
+            <h3 className="text-xs font-black uppercase text-slate-400">CHAMPIONSHIP & RECORDS</h3>
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setChampTab('STANDINGS');
+                  setGameState('CHAMPIONSHIP');
+                }}
+                className="p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-between text-left text-xs font-bold text-white transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  <span>Championship League Standings</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGameState('CAREER_STATS')}
+                className="p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-between text-left text-xs font-bold text-white transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <BarChart2 className="w-4 h-4 text-cyan-400" />
+                  <span>Career Stats & Match Records</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setGameState('TROPHIES')}
+                className="p-3 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-between text-left text-xs font-bold text-white transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-yellow-400" />
+                  <span>Trophies & Milestones ({progress.unlockedTrophies.length})</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
           </div>
         </main>
       </div>
@@ -1287,8 +1372,15 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
             )}
 
             <button
+              onClick={() => setGameState('CHAMPIONSHIP')}
+              className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-black text-xs uppercase flex items-center justify-center border border-white/10 cursor-pointer"
+            >
+              SELECT LEVEL
+            </button>
+
+            <button
               onClick={() => setGameState('HUB')}
-              className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-black text-xs uppercase flex items-center justify-center border border-white/10"
+              className="w-full py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-black text-xs uppercase flex items-center justify-center border border-white/10 cursor-pointer"
             >
               RETURN TO GAME HUB
             </button>
@@ -1332,124 +1424,214 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
           </div>
         </header>
 
-        {/* Hero Banner with Team & Matchup */}
-        <main className="flex-1 max-w-md mx-auto w-full px-4 py-2 space-y-4 flex flex-col justify-center">
-          {/* Selected Representation Card (Country / Club) */}
-          <div
-            onClick={() => setGameState('TEAM_SELECT')}
-            className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md cursor-pointer flex items-center justify-between transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl font-black shadow-md border border-white/20"
-                style={{ backgroundColor: playerTeam.primaryColor, color: playerTeam.textColor }}
-              >
-                {playerTeam.flagEmoji || playerTeam.crestSymbol}
-              </div>
-              <div>
-                <span className="text-[10px] text-cyan-300 font-black uppercase tracking-wider block">
-                  YOUR TEAM
+        {/* Hero Section: Focused Pre-Match Experience */}
+        <main className="flex-1 max-w-md mx-auto w-full px-4 py-2 space-y-3.5 flex flex-col justify-center">
+          {/* Independent Country Flag Selection (YOU vs AI) */}
+          <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md space-y-2.5 shadow-lg">
+            <span className="text-[10px] text-cyan-300 font-black uppercase tracking-widest block text-center">
+              MATCH REPRESENTATION (TAP TO CHANGE)
+            </span>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* YOU (HUMAN) */}
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-cyan-400 uppercase tracking-wider block">
+                  YOU (HUMAN)
                 </span>
-                <h3 className="text-sm font-black text-white leading-tight">{playerTeam.name}</h3>
-                <span className="text-[10px] text-slate-400">
-                  Striker: {playerTeam.striker.name} #{playerTeam.striker.number}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setCountryPickerSide('YOU')}
+                  className="w-full p-2.5 rounded-xl bg-black/40 hover:bg-white/10 active:scale-[0.98] border border-cyan-500/40 flex items-center justify-between text-left transition-all cursor-pointer shadow-sm group"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-2xl shrink-0">{playerTeam.flagEmoji || playerTeam.crestSymbol}</span>
+                    <span className="text-xs font-black text-white truncate">
+                      {playerTeam.country || playerTeam.name}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-white shrink-0 ml-1" />
+                </button>
               </div>
-            </div>
-            <div className="flex items-center gap-1 text-[11px] font-bold text-cyan-300">
-              <span>CUSTOMIZE</span>
-              <ChevronRight className="w-3.5 h-3.5" />
+
+              {/* AI (COMPUTER) */}
+              <div className="space-y-1">
+                <span className="text-[9px] font-black text-rose-400 uppercase tracking-wider block">
+                  AI (COMPUTER)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCountryPickerSide('AI')}
+                  className="w-full p-2.5 rounded-xl bg-black/40 hover:bg-white/10 active:scale-[0.98] border border-rose-500/40 flex items-center justify-between text-left transition-all cursor-pointer shadow-sm group"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-2xl shrink-0">{opponentTeam.flagEmoji || opponentTeam.crestSymbol}</span>
+                    <span className="text-xs font-black text-white truncate">
+                      {opponentTeam.country || opponentTeam.name}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-white shrink-0 ml-1" />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Carried Total Score & Progression Banner */}
-          <div className="p-4 rounded-3xl bg-gradient-to-b from-[#0c2a49] to-[#06182a] border border-[#0284c7]/40 shadow-xl space-y-3 text-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none" />
-
-            <div>
+          {/* Current Level & Carried Progression Score */}
+          <div className="p-3.5 rounded-2xl bg-gradient-to-b from-[#0c2a49] to-[#06182a] border border-[#0284c7]/40 shadow-xl flex items-center justify-between relative overflow-hidden">
+            <div className="space-y-0.5">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
-                CARRIED PROGRESSION SCORE
+                CURRENT STAGE
               </span>
-              <span className="text-3xl font-black text-[#38bdf8] font-mono tracking-tight">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-black text-white">LEVEL {currentLevelIndex + 1}</span>
+                <span className="text-xs text-cyan-300 font-bold font-mono">/ 40</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-medium block">
+                First to {currentLevelConfig.targetGoals} Goals Wins
+              </span>
+            </div>
+
+            <div className="text-right space-y-0.5">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">
+                TOTAL POINTS
+              </span>
+              <span className="text-xl font-black text-[#38bdf8] font-mono block">
                 {progress.currentTotalScore.toLocaleString()}
               </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/10">
-              <div className="p-2 rounded-xl bg-white/5">
-                <span className="text-[9px] text-slate-400 font-bold uppercase block">LEVEL</span>
-                <span className="text-sm font-black text-white font-mono">{progress.unlockedLevel}/20</span>
-              </div>
-              <div className="p-2 rounded-xl bg-white/5">
-                <span className="text-[9px] text-slate-400 font-bold uppercase block">STARS</span>
-                <div className="flex items-center justify-center gap-1">
-                  <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                  <span className="text-sm font-black text-amber-300 font-mono">{totalStars}/60</span>
-                </div>
-              </div>
-              <div className="p-2 rounded-xl bg-white/5">
-                <span className="text-[9px] text-slate-400 font-bold uppercase block">BEST RALLY</span>
-                <span className="text-sm font-black text-emerald-400 font-mono">{progress.highestRallyOverall} Hits</span>
-              </div>
+              <span className="text-[10px] text-emerald-400 font-bold block font-mono">
+                Best Rally: {progress.highestRallyOverall} Hits
+              </span>
             </div>
           </div>
 
-          {/* PRIMARY ACTION: PLAY (Big Kickoff CTA) */}
+          {/* 1. PLAY (Primary Action - Direct Kickoff) */}
           <button
-            onClick={() => openMatchSetup(progress.unlockedLevel - 1)}
+            type="button"
+            onClick={() => startMatchCountdown()}
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#10b981] via-[#059669] to-[#10b981] hover:brightness-110 active:scale-[0.98] text-white font-black text-base tracking-wider uppercase shadow-xl shadow-emerald-500/30 flex items-center justify-center gap-2 transition-all cursor-pointer border border-white/25"
           >
             <Play className="w-6 h-6 fill-current" />
-            <span>PLAY LEVEL {progress.unlockedLevel}</span>
+            <span>PLAY LEVEL {currentLevelIndex + 1}</span>
           </button>
 
-          {/* GAME HUB MENU NAVIGATION CARDS */}
-          <div className="grid grid-cols-2 gap-2.5">
-            {/* LEVELS / CHAMPIONSHIP */}
+          {/* 2. THREE FOCUSED ACTION BUTTONS: LEVEL, LEADERBOARD, SETTINGS */}
+          <div className="grid grid-cols-3 gap-2.5">
+            {/* LEVEL (Access 1-40 Levels) */}
             <button
-              onClick={() => setGameState('CHAMPIONSHIP')}
-              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-start gap-1 transition-all text-left cursor-pointer"
+              type="button"
+              onClick={() => {
+                setChampTab('LEVELS');
+                setGameState('CHAMPIONSHIP');
+              }}
+              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-center justify-center gap-1 transition-all text-center cursor-pointer shadow-sm"
             >
-              <Trophy className="w-5 h-5 text-amber-400 mb-0.5" />
-              <span className="text-xs font-black uppercase text-white tracking-wide">CHAMPIONSHIP</span>
-              <span className="text-[10px] text-slate-400">Standings & 20 Levels</span>
+              <ListOrdered className="w-5 h-5 text-cyan-400" />
+              <span className="text-xs font-black uppercase text-white tracking-wide">LEVEL</span>
+              <span className="text-[9px] text-slate-400 font-mono">1 – 40</span>
             </button>
 
-            {/* CAREER / STATS */}
+            {/* LEADERBOARD (View High Scores) */}
             <button
-              onClick={() => setGameState('CAREER_STATS')}
-              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-start gap-1 transition-all text-left cursor-pointer"
-            >
-              <BarChart2 className="w-5 h-5 text-cyan-400 mb-0.5" />
-              <span className="text-xs font-black uppercase text-white tracking-wide">CAREER STATS</span>
-              <span className="text-[10px] text-slate-400">Records & Win Rate</span>
-            </button>
-
-            {/* LEADERBOARD */}
-            <button
+              type="button"
               onClick={() => setGameState('LEADERBOARD')}
-              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-start gap-1 transition-all text-left cursor-pointer"
+              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-center justify-center gap-1 transition-all text-center cursor-pointer shadow-sm"
             >
-              <Award className="w-5 h-5 text-purple-400 mb-0.5" />
-              <span className="text-xs font-black uppercase text-white tracking-wide">LEADERBOARD</span>
-              <span className="text-[10px] text-slate-400">Global Rankings</span>
+              <Award className="w-5 h-5 text-purple-400" />
+              <span className="text-xs font-black uppercase text-white tracking-wide">RANKINGS</span>
+              <span className="text-[9px] text-slate-400 font-mono">Global</span>
             </button>
 
-            {/* TROPHIES / AWARDS */}
+            {/* SETTINGS (Preferences & Records) */}
             <button
-              onClick={() => setGameState('TROPHIES')}
-              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-start gap-1 transition-all text-left cursor-pointer"
+              type="button"
+              onClick={() => setGameState('SETTINGS')}
+              className="p-3.5 rounded-2xl bg-white/5 hover:bg-white/10 active:scale-[0.98] border border-white/10 flex flex-col items-center justify-center gap-1 transition-all text-center cursor-pointer shadow-sm"
             >
-              <Sparkles className="w-5 h-5 text-yellow-400 mb-0.5" />
-              <span className="text-xs font-black uppercase text-white tracking-wide">TROPHIES</span>
-              <span className="text-[10px] text-slate-400">{progress.unlockedTrophies.length} Unlocked</span>
+              <Settings className="w-5 h-5 text-slate-300" />
+              <span className="text-xs font-black uppercase text-white tracking-wide">SETTINGS</span>
+              <span className="text-[9px] text-slate-400 font-mono">Audio & Info</span>
             </button>
           </div>
         </main>
 
-        <footer className="p-3 text-center text-[10.5px] text-slate-400 font-medium">
-          Horizontal Soccer Ping Pong • Swipe to defend • Tap KICK to return
+        <footer className="p-3 text-center text-[11px] text-slate-400 font-medium">
+          Horizontal Soccer Ping Pong • Swipe horizontally to defend & kick
         </footer>
+
+        {/* COUNTRY SELECTION MODAL (INDEPENDENT SELECTOR FOR YOU & AI) */}
+        {countryPickerSide && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="w-full max-w-md max-h-[85vh] rounded-3xl bg-gradient-to-b from-[#0a233b] to-[#040e17] border border-white/20 p-5 flex flex-col shadow-2xl space-y-3">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div>
+                  <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest block">
+                    SELECT COUNTRY
+                  </span>
+                  <h3 className="text-base font-black text-white">
+                    {countryPickerSide === 'YOU' ? '🇪🇹 YOU (HUMAN)' : '🇧🇷 AI (COMPUTER)'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCountryPickerSide(null)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Country List */}
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                {COUNTRY_TEAMS.map((team) => {
+                  const isSelected =
+                    countryPickerSide === 'YOU'
+                      ? team.id === playerTeam.id
+                      : team.id === opponentTeam.id;
+
+                  return (
+                    <button
+                      key={team.id}
+                      type="button"
+                      onClick={() => {
+                        if (countryPickerSide === 'YOU') {
+                          setSelectedPlayerTeamId(team.id);
+                          saveProgress({ ...progress, selectedTeamId: team.id });
+                        } else {
+                          setSelectedOpponentTeamId(team.id);
+                        }
+                        setCountryPickerSide(null);
+                      }}
+                      className={`w-full p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? 'bg-[#0284c7]/30 border-[#0284c7] text-white shadow-md'
+                          : 'bg-white/5 hover:bg-white/10 border-white/10 text-slate-300 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl shrink-0">{team.flagEmoji || '⚽'}</span>
+                        <div>
+                          <span className="text-xs font-bold text-white block">{team.name}</span>
+                          <span className="text-[10px] text-slate-400">
+                            Striker: {team.striker.name} #{team.striker.number}
+                          </span>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <span className="text-xs font-black text-cyan-300">✓ SELECTED</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCountryPickerSide(null)}
+                className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-black uppercase cursor-pointer"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1465,8 +1647,17 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
     <div className="relative w-full h-full min-h-screen bg-[#07131f] text-white flex flex-col justify-between overflow-hidden select-none font-['Plus_Jakarta_Sans',sans-serif]">
       {/* 1. TOP HUD */}
       <header className="relative z-20 p-2.5 sm:p-3 bg-[#05111c]/95 backdrop-blur-md border-b border-white/10 flex items-center justify-between max-w-md mx-auto w-full shadow-md">
-        {/* Left: Pause & Team Score Box */}
-        <div className="flex items-center gap-2">
+        {/* Left: BACK & PAUSE & Team Score Box */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Back Button during active match */}
+          <button
+            onClick={handleBackFromMatch}
+            className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center gap-1 text-white text-xs font-black cursor-pointer border border-white/15"
+            aria-label="Back to Setup"
+          >
+            <span>← BACK</span>
+          </button>
+
           <button
             onClick={() => setGameState('PAUSED')}
             className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center text-white cursor-pointer border border-white/15"
@@ -1522,6 +1713,7 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
       {/* 2. VERTICAL SOCCER PITCH CANVAS */}
       <div className="relative flex-1 w-full max-w-md mx-auto overflow-hidden flex items-center justify-center">
         <SoccerPitchCanvas
+          ref={pitchCanvasRef}
           playerTeam={playerTeam}
           opponentTeam={opponentTeam}
           levelConfig={currentLevelConfig}
@@ -1562,28 +1754,40 @@ export const SoccerPingPongGame: React.FC<SoccerPingPongGameProps> = ({
         )}
       </div>
 
-      {/* 3. LOWER CONTROLS (Removed Left/Right buttons, prominent Kick button + Gesture guidance) */}
-      <footer className="relative z-20 p-3 bg-[#05111c]/95 backdrop-blur-md border-t border-white/10 max-w-md mx-auto w-full space-y-2">
-        {/* Swipe Guidance Prompt */}
-        <div className="text-center">
-          <span className="text-[10px] text-cyan-300/90 font-bold uppercase tracking-wider">
-            ↔ Swipe field to defend Left, Center & Right Wings
-          </span>
-        </div>
-
-        {/* Large Centered Responsive KICK Button */}
-        <div className="flex items-center justify-center">
-          <button
-            type="button"
-            onPointerDown={() => setKickTrigger((prev) => prev + 1)}
-            className="w-full max-w-xs h-14 rounded-2xl bg-gradient-to-r from-[#0284c7] via-[#0ea5e9] to-[#0284c7] hover:brightness-110 active:scale-[0.97] active:from-amber-500 active:to-amber-600 text-white font-black text-base uppercase tracking-wider shadow-lg shadow-[#0284c7]/30 flex items-center justify-center gap-2 cursor-pointer select-none border border-white/30 transition-all"
-            aria-label="Kick Football"
-          >
-            <span className="text-2xl">⚽</span>
-            <span className="text-sm font-black tracking-widest">KICK / RETURN</span>
-          </button>
-        </div>
+      {/* 3. LOWER CONTROLS - SINGLE PRIMARY INPUT: HORIZONTAL SWIPE ONLY */}
+      <footer className="relative z-20 py-2.5 px-4 bg-[#05111c]/90 backdrop-blur-md border-t border-white/10 max-w-md mx-auto w-full text-center select-none pointer-events-none">
+        <span className="text-[11px] text-cyan-300 font-bold uppercase tracking-wider">
+          ↔ Swipe horizontally to defend & return the ball
+        </span>
       </footer>
+
+      {/* EXIT MATCH CONFIRMATION MODAL */}
+      {showExitConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xs rounded-3xl bg-gradient-to-b from-[#091b2e] to-[#040e18] border border-white/20 p-5 space-y-4 shadow-2xl text-center">
+            <h3 className="text-base font-black uppercase text-white tracking-wider">
+              EXIT MATCH?
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Stop the current match and return to setup. No goals or progression score will be awarded.
+            </p>
+            <div className="space-y-2 pt-2">
+              <button
+                onClick={handleCancelExit}
+                className="w-full py-3 rounded-xl bg-[#0284c7] hover:bg-[#0369a1] active:scale-[0.98] text-white text-xs font-black uppercase cursor-pointer shadow-md"
+              >
+                CONTINUE
+              </button>
+              <button
+                onClick={handleConfirmExit}
+                className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-[0.98] text-slate-300 hover:text-white text-xs font-black uppercase cursor-pointer border border-white/10"
+              >
+                EXIT
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* PAUSE MODAL */}
       {gameState === 'PAUSED' && (

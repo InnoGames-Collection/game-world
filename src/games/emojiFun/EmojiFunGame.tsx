@@ -202,7 +202,7 @@ export const EmojiFunGame: React.FC<EmojiFunGameProps> = ({ onExit }) => {
         const finalAccuracy = Math.round(
           (levelCorrectCount / activeQuestions.length) * 100
         );
-        const coinsWon = currentLevelConfig.rewardCoins;
+        const coinsWon = currentLevelConfig.rewardCoins || 10;
 
         // Record completed level in tournament leaderboard service
         tournamentLeaderboardService.recordLevelCompletion(
@@ -363,7 +363,7 @@ export const EmojiFunGame: React.FC<EmojiFunGameProps> = ({ onExit }) => {
               ? currentQuestion?.options[currentQuestion?.correctIndex]
               : undefined
           }
-          coinsEarned={currentLevelConfig.rewardCoins}
+          coinsEarned={currentLevelConfig.rewardCoins || 10}
           timeSpentFormatted={timeFormatted}
           accuracyPercent={
             activeQuestions.length > 0

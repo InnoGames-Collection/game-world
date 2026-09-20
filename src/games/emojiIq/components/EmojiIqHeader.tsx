@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Settings, Volume2, VolumeX, Lightbulb, Plus, Heart } from 'lucide-react';
+import { Settings, Volume2, VolumeX, Lightbulb, Plus, Heart, ArrowLeft } from 'lucide-react';
 import { EMOJI_IQ_COLORS } from '../colors';
 import { emojiIqAudio } from '../emojiIqAudio';
 
@@ -15,6 +15,7 @@ interface EmojiIqHeaderProps {
   availableHints: number;
   onOpenStore: () => void;
   onOpenSettings: () => void;
+  onBack?: () => void;
   onUseHint?: () => void;
   showHintButton?: boolean;
   hintsDisabled?: boolean;
@@ -27,6 +28,7 @@ export const EmojiIqHeader: React.FC<EmojiIqHeaderProps> = ({
   availableHints,
   onOpenStore,
   onOpenSettings,
+  onBack,
   onUseHint,
   showHintButton = false,
   hintsDisabled = false,
@@ -40,33 +42,52 @@ export const EmojiIqHeader: React.FC<EmojiIqHeaderProps> = ({
 
   return (
     <header className="w-full max-w-md mx-auto flex items-center justify-between px-3 py-2 sm:px-4 sm:py-2.5 z-20 select-none">
-      {/* Coins Badge (Clickable to open store) */}
-      <button
-        onClick={() => {
-          emojiIqAudio.playPop();
-          onOpenStore();
-        }}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border shadow-sm hover:scale-105 active:scale-95 transition-transform"
-        style={{
-          borderColor: 'rgba(255, 183, 3, 0.4)',
-          boxShadow: '0 2px 8px rgba(255, 183, 3, 0.2)',
-        }}
-        title="Coin Balance — Tap to Visit Store"
-      >
-        <span className="text-base sm:text-lg">🪙</span>
-        <span
-          className="font-black text-xs sm:text-sm font-mono tracking-tight"
-          style={{ color: EMOJI_IQ_COLORS.textPrimary }}
+      {/* Top Left: Back/Exit Button & Coins Badge */}
+      <div className="flex items-center gap-2">
+        {onBack && (
+          <button
+            id="emoji-iq-back-btn"
+            onClick={() => {
+              emojiIqAudio.playPop();
+              onBack();
+            }}
+            className="h-8 px-2.5 rounded-full bg-white border border-[#6C5CE7]/20 flex items-center gap-1 text-[#241F3D] hover:scale-105 active:scale-95 transition-transform shadow-xs cursor-pointer"
+            title="Return to GameON Tele Portal"
+            aria-label="Back to Portal"
+          >
+            <ArrowLeft className="w-4 h-4 text-[#6C5CE7] stroke-[2.5]" />
+            <span className="text-[11px] font-bold text-[#6C5CE7] hidden xs:inline">Exit</span>
+          </button>
+        )}
+
+        {/* Coins Badge (Clickable to open store) */}
+        <button
+          onClick={() => {
+            emojiIqAudio.playPop();
+            onOpenStore();
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border shadow-sm hover:scale-105 active:scale-95 transition-transform"
+          style={{
+            borderColor: 'rgba(255, 183, 3, 0.4)',
+            boxShadow: '0 2px 8px rgba(255, 183, 3, 0.2)',
+          }}
+          title="Coin Balance — Tap to Visit Store"
         >
-          {coins.toLocaleString()}
-        </span>
-        <div
-          className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-black"
-          style={{ backgroundColor: EMOJI_IQ_COLORS.accent }}
-        >
-          <Plus className="w-3 h-3 text-[#241F3D] stroke-[3]" />
-        </div>
-      </button>
+          <span className="text-base sm:text-lg">🪙</span>
+          <span
+            className="font-black text-xs sm:text-sm font-mono tracking-tight"
+            style={{ color: EMOJI_IQ_COLORS.textPrimary }}
+          >
+            {coins.toLocaleString()}
+          </span>
+          <div
+            className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[10px] font-black"
+            style={{ backgroundColor: EMOJI_IQ_COLORS.accent }}
+          >
+            <Plus className="w-3 h-3 text-[#241F3D] stroke-[3]" />
+          </div>
+        </button>
+      </div>
 
       {/* Center: Lives Hearts */}
       <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-[#6C5CE7]/15 shadow-sm">

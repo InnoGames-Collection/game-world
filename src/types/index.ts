@@ -2,7 +2,7 @@
  * Core type definitions for TelePlay Ethiopia (EthioTelecom Gaming Portal)
  */
 
-export type NavigationTab = 'home' | 'games' | 'leaderboard' | 'profile';
+export type NavigationTab = 'home' | 'games' | 'tournament' | 'leaderboard' | 'profile' | 'admin';
 
 export type GameCategory = 
   | 'all' 
@@ -65,6 +65,12 @@ export interface UserProfile {
   trophiesCount: number;
   // telebirr identity
   telebirrId?: string;
+  role?: 'player' | 'admin';
+  // Aliases for game engine compatibility
+  phone?: string;
+  name?: string;
+  username?: string;
+  energyBalance?: number;
 }
 
 export interface GameDefinition {

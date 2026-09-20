@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Clock,
+  Layers,
 } from 'lucide-react';
 import {
   GameState,
@@ -28,6 +29,9 @@ import {
   Collectible3D,
   VehiclePhysics3D,
   HillRiderStorage,
+  HillClimbLevelConfig,
+  PlayerLevelProgress,
+  HillClimbSettingsState,
 } from './types';
 import {
   createTerrainMesh,
@@ -39,6 +43,7 @@ import {
   getTerrainElevation,
   getTerrainSlopeAt,
   resetSplineToDailySeed,
+  resetSplineForLevel,
 } from './terrain3D';
 import {
   createVehicle3D,
@@ -51,13 +56,24 @@ import {
   PhysicsControls,
 } from './physics3D';
 import { HillRiderAudio } from './audio';
+import { HILL_CLIMB_LEVELS } from './levels';
+import { HillClimbStorage } from './levelStorage';
+import { HillClimbMenu } from './components/HillClimbMenu';
+import { HillClimbLevelSelect } from './components/HillClimbLevelSelect';
+import { HillClimbLeaderboard } from './components/HillClimbLeaderboard';
+import { HillClimbSettings } from './components/HillClimbSettings';
+import { HillClimbVictoryModal } from './components/HillClimbVictoryModal';
+import { HillClimbFailureModal } from './components/HillClimbFailureModal';
 
-import { GameDefinition } from '../../types';
+const getLevelConfig = (lvl: number): HillClimbLevelConfig => {
+  return HILL_CLIMB_LEVELS.find((l) => l.levelNumber === lvl) || HILL_CLIMB_LEVELS[0];
+};
 
 interface HillRiderGameProps {
-  game?: GameDefinition;
-  onScoreSubmit?: (score: number) => void;
+  game?: any;
+  profile?: any;
   onGameOver?: (score: number, durationSeconds: number) => void;
+  onScoreSubmit?: (score: number) => void;
   onExit: () => void;
   isAudioEnabled?: boolean;
 }
@@ -81,18 +97,40 @@ interface ActiveChunk {
 }
 
 export const HillRiderGame: React.FC<HillRiderGameProps> = ({
+  game,
+  profile,
+  onGameOver,
   onScoreSubmit,
   onExit,
+  isAudioEnabled = true,
 }) => {
   // Mount element for Three.js WebGL canvas
   const mountRef = useRef<HTMLDivElement>(null);
 
+  // Player and Level Progression Persistence
+  const playerId = HillClimbStorage.getCleanPlayerId(profile);
+  const [progress, setProgress] = useState<PlayerLevelProgress>(() => {
+    return HillClimbStorage.getPlayerProgress(playerId);
+  });
+  const [currentLevelNumber, setCurrentLevelNumber] = useState<number>(1);
+  const currentLevelConfigRef = useRef<HillClimbLevelConfig>(getLevelConfig(1));
+
+  // Audio & Settings State
+  const [soundSettings, setSoundSettings] = useState<HillClimbSettingsState>(() => {
+    const s = HillClimbStorage.getSettings();
+    if (isAudioEnabled === false) {
+      s.soundEnabled = false;
+      s.engineSound = false;
+    }
+    return s;
+  });
+
   // -------------------------------------------------------------
-  // Game & UI States
+  // Game & UI States (Defaults to 'menu' before gameplay starts)
   // -------------------------------------------------------------
-  const [status, setStatus] = useState<GameState>('start_screen');
+  const [status, setStatus] = useState<GameState>('menu');
   const [countdownText, setCountdownText] = useState<string>('3');
-  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(soundSettings.soundEnabled);
   const [crashReason, setCrashReason] = useState<CrashReason>('flipped');
 
   // Live HUD Metrics (Updated from animation loop throttled)
@@ -106,6 +144,28 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
   const [isBrakeActive, setIsBrakeActive] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(TOTAL_SESSION_SECONDS);
 
+  // Run Results for modals
+  const [lastRunStats, setLastRunStats] = useState<{
+    score: number;
+    distance: number;
+    targetDistance: number;
+    stars: number;
+    coins: number;
+    timeTaken: number;
+    isNewRecord: boolean;
+    reason?: CrashReason;
+    unlockedNextLevel: boolean;
+  }>({
+    score: 0,
+    distance: 0,
+    targetDistance: 500,
+    stars: 0,
+    coins: 0,
+    timeTaken: 0,
+    isNewRecord: false,
+    unlockedNextLevel: false,
+  });
+
   // Persistence (best runs, coins, total games)
   const [userData, setUserData] = useState<HillRiderStorage>(() => {
     try {
@@ -116,6 +176,11 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
     }
     return { coins: 0, bestDistance: 0, bestScore: 0, totalRuns: 0 };
   });
+
+  // Keep progress in sync if player changes
+  useEffect(() => {
+    setProgress(HillClimbStorage.getPlayerProgress(playerId));
+  }, [playerId]);
 
   // -------------------------------------------------------------
   // Engine Refs (Physics, Controls, Three.js Scene Entities)
@@ -272,11 +337,13 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
   }, [loadChunk, unloadChunk]);
 
   // -------------------------------------------------------------
-  // Full Clean Game Restart (Play Again / Reset)
+  // Full Clean Game Restart (Play Again / Reset for Current Level)
   // -------------------------------------------------------------
-  const resetRun = useCallback(() => {
-    // 0. Ensure deterministic daily seed is initialized
-    resetSplineToDailySeed();
+  const resetRun = useCallback((levelConfig?: HillClimbLevelConfig) => {
+    const config = levelConfig || currentLevelConfigRef.current;
+
+    // 0. Ensure deterministic seed & handcrafted profile is loaded for this level
+    resetSplineForLevel(config);
 
     // 1. Reset Physics State
     physicsStateRef.current = createInitialPhysicsState();
@@ -339,11 +406,15 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
   }, [loadChunk, unloadChunk]);
 
   // -------------------------------------------------------------
-  // Start Flow: Start Screen -> Countdown (3, 2, 1, GO) -> Playing
+  // Start Flow: Select Level -> Countdown (3, 2, 1, GO) -> Playing
   // -------------------------------------------------------------
-  const handleStartGame = useCallback(() => {
+  const handleStartLevel = useCallback((levelNum: number) => {
     initAudio();
-    resetRun();
+    const config = getLevelConfig(levelNum);
+    currentLevelConfigRef.current = config;
+    setCurrentLevelNumber(levelNum);
+
+    resetRun(config);
     setStatus('countdown');
     setCountdownText('3');
     HillRiderAudio.playCountdownTick(false);
@@ -360,16 +431,22 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
       } else {
         clearInterval(interval);
         setStatus('playing');
-        HillRiderAudio.startEngine();
+        if (soundSettings.engineSound) {
+          HillRiderAudio.startEngine();
+        }
         lastTimeRef.current = performance.now();
       }
     }, 700);
-  }, [initAudio, resetRun]);
+  }, [initAudio, resetRun, soundSettings.engineSound]);
 
   const handleRestartRun = useCallback(() => {
     HillRiderAudio.stopEngine();
-    handleStartGame();
-  }, [handleStartGame]);
+    handleStartLevel(currentLevelNumber);
+  }, [handleStartLevel, currentLevelNumber]);
+
+  const handleStartGame = useCallback(() => {
+    handleStartLevel(progress.unlockedLevel || 1);
+  }, [handleStartLevel, progress.unlockedLevel]);
 
   // -------------------------------------------------------------
   // Touch / Pointer / Mouse Control Handlers (Android Optimized)
@@ -620,15 +697,95 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
           });
         }
 
+        // Check for Level Finish (Victory!)
+        const targetDist = currentLevelConfigRef.current.targetDistance;
+        if (physics.distance >= targetDist) {
+          HillRiderAudio.stopEngine();
+          HillRiderAudio.playWinFanfare();
+
+          const finalScore = physics.finalScore;
+          const timeTaken = physics.driveTimeSeconds;
+
+          // Star rating calculation based on score and fuel efficiency
+          let earnedStars = 1;
+          if (physics.fuel >= 25 && finalScore >= 180) {
+            earnedStars = 3;
+          } else if (physics.fuel >= 10 || finalScore >= 120) {
+            earnedStars = 2;
+          }
+
+          const saveResult = HillClimbStorage.saveLevelResult(
+            playerId,
+            currentLevelNumber,
+            finalScore,
+            Math.round(timeTaken),
+            true,
+            physics.coinsCollected
+          );
+
+          setLastRunStats({
+            score: finalScore,
+            distance: Math.floor(physics.distance),
+            targetDistance: targetDist,
+            stars: saveResult.stars,
+            coins: physics.coinsCollected,
+            timeTaken,
+            isNewRecord: saveResult.isNewBest,
+            unlockedNextLevel: saveResult.unlockedNext,
+          });
+
+          setProgress(saveResult.progress);
+          setStatus('level_complete');
+
+          saveUserData({
+            coins: userData.coins + physics.coinsCollected,
+            bestDistance: Math.max(userData.bestDistance, Math.floor(physics.distance)),
+            bestScore: Math.max(userData.bestScore, finalScore),
+            totalRuns: userData.totalRuns + 1,
+          });
+
+          if (onScoreSubmit) {
+            onScoreSubmit(finalScore);
+          }
+          if (onGameOver) {
+            onGameOver(finalScore, Math.floor(timeTaken));
+          }
+          return;
+        }
+
         // Check for Game Over Failure
         if (physics.isCrashed) {
           HillRiderAudio.playCrash();
           HillRiderAudio.stopEngine();
           const reason = physics.crashReason || 'flipped';
           setCrashReason(reason);
-          setStatus('game_over');
 
           const finalScore = physics.finalScore;
+          const timeTaken = physics.driveTimeSeconds;
+
+          const saveResult = HillClimbStorage.saveLevelResult(
+            playerId,
+            currentLevelNumber,
+            finalScore,
+            Math.round(timeTaken),
+            false,
+            physics.coinsCollected
+          );
+
+          setLastRunStats({
+            score: finalScore,
+            distance: Math.floor(physics.distance),
+            targetDistance: targetDist,
+            stars: 0,
+            coins: physics.coinsCollected,
+            timeTaken,
+            reason,
+            isNewRecord: saveResult.isNewBest,
+            unlockedNextLevel: false,
+          });
+
+          setProgress(saveResult.progress);
+          setStatus('level_failed');
 
           // Save personal best records
           saveUserData({
@@ -642,6 +799,7 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
           if (onScoreSubmit) {
             onScoreSubmit(finalScore);
           }
+          return;
         }
       }
 
@@ -731,7 +889,7 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
         cancelAnimationFrame(animationFrameIdRef.current);
       }
     };
-  }, [status, syncChunks, saveUserData, userData, onScoreSubmit]);
+  }, [status, syncChunks, saveUserData, userData, onScoreSubmit, onGameOver, playerId, currentLevelNumber]);
 
   return (
     <div
@@ -739,32 +897,50 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
       className="relative w-full h-full min-h-[580px] bg-slate-950 flex flex-col select-none overflow-hidden font-sans"
     >
       {/* ========================================================================= */}
-      {/* 1. TOP HEADER BAR: TelePlus Brand, Tournament Score HUD, Sound, Pause      */}
+      {/* 1. TOP HEADER BAR: Level Title, Difficulty Badge, Score HUD, Sound, Pause */}
       {/* ========================================================================= */}
       <div className="relative z-30 flex items-center justify-between px-3 sm:px-5 py-2.5 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 shadow-md">
         
-        {/* Game Title & Best Record */}
+        {/* Game & Level Information */}
         <div className="flex items-center gap-2.5">
           <button
-            onClick={onExit}
+            onClick={() => {
+              if (status === 'playing') {
+                HillRiderAudio.stopEngine();
+                setStatus('paused');
+              } else {
+                setStatus('level_select');
+              }
+            }}
             className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white flex items-center gap-1 text-xs font-bold transition-colors cursor-pointer border border-slate-700"
-            title="Exit Game"
+            title="Levels / Pause"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">EXIT</span>
+            <span className="hidden sm:inline">{status === 'playing' ? 'PAUSE' : 'LEVELS'}</span>
           </button>
 
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1688C9] to-[#8BCB3D] flex items-center justify-center text-white font-black text-xs shadow-md">
-            3D
+            L{currentLevelNumber}
           </div>
           <div>
-            <h1 className="text-white font-black text-sm sm:text-base tracking-tight leading-none">
-              HILL CLIMB 3D
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-white font-black text-xs sm:text-sm tracking-tight leading-none uppercase">
+                {currentLevelConfigRef.current.name}
+              </h1>
+              <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                currentLevelConfigRef.current.tier.includes('Expert')
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+                  : currentLevelConfigRef.current.tier.includes('Extreme')
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
+              }`}>
+                {currentLevelConfigRef.current.tier}
+              </span>
+            </div>
             <div className="text-[10px] text-slate-400 font-semibold flex items-center gap-1.5 mt-0.5">
-              <span>BEST: <strong className="text-amber-400 font-mono">{userData.bestScore} PTS</strong></span>
+              <span>TARGET: <strong className="text-amber-400 font-mono">{currentLevelConfigRef.current.targetDistance}m</strong></span>
               <span>•</span>
-              <span>{userData.bestDistance}m</span>
+              <span>BEST: <strong className="text-cyan-400 font-mono">{progress.completedLevels[currentLevelNumber]?.bestScore || 0} PTS</strong></span>
             </div>
           </div>
         </div>
@@ -797,7 +973,13 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
 
           {/* Sound Toggle */}
           <button
-            onClick={() => setSoundEnabled((prev) => !prev)}
+            onClick={() => {
+              const nextVal = !soundEnabled;
+              setSoundEnabled(nextVal);
+              const updated = { ...soundSettings, soundEnabled: nextVal, engineSound: nextVal };
+              setSoundSettings(updated);
+              HillClimbStorage.saveSettings(updated);
+            }}
             className="w-8 h-8 rounded-xl bg-slate-800 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
             aria-label="Toggle Sound"
           >
@@ -821,19 +1003,32 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. SECONDARY LIVE HUD: Distance, Coins, Fuel Meter, Speedometer           */}
+      {/* 2. SECONDARY LIVE HUD: Distance / Target Progress, Coins, Fuel, Speed     */}
       {/* ========================================================================= */}
       {status === 'playing' && (
         <div className="absolute top-14 inset-x-3 sm:inset-x-5 z-20 flex items-center justify-between pointer-events-none">
           
           {/* Distance & Coins Pill */}
           <div className="flex items-center gap-2">
-            <div className="px-3 py-1.5 rounded-xl bg-slate-950/80 backdrop-blur-sm border border-slate-800/80 text-white font-mono text-xs flex items-center gap-1.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-sans font-bold">DIST:</span>
-              <span className="text-[#8BCB3D] font-black">{distanceMeters}m</span>
+            <div className="px-3 py-1.5 rounded-xl bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-white font-mono text-xs flex flex-col gap-1 shadow-lg min-w-[130px]">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] text-slate-400 uppercase font-sans font-bold">DIST</span>
+                <span className="text-[#8BCB3D] font-black">
+                  {distanceMeters}m <span className="text-[10px] text-slate-400 font-normal">/ {currentLevelConfigRef.current.targetDistance}m</span>
+                </span>
+              </div>
+              {/* Progress track */}
+              <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-[#1688C9] to-[#8BCB3D] transition-all duration-150"
+                  style={{
+                    width: `${Math.min(100, Math.round((distanceMeters / currentLevelConfigRef.current.targetDistance) * 100))}%`,
+                  }}
+                />
+              </div>
             </div>
 
-            <div className="px-3 py-1.5 rounded-xl bg-slate-950/80 backdrop-blur-sm border border-slate-800/80 text-amber-400 font-mono text-xs flex items-center gap-1.5 shadow-lg">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-amber-400 font-mono text-xs flex items-center gap-1.5 shadow-lg">
               <Coins className="w-3.5 h-3.5 fill-amber-400" />
               <span className="font-black text-white">{coinsCount}</span>
             </div>
@@ -842,12 +1037,12 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
           {/* Fuel Gauge & Speedometer */}
           <div className="flex items-center gap-2">
             {/* Speedometer */}
-            <div className="px-2.5 py-1.5 rounded-xl bg-slate-950/80 backdrop-blur-sm border border-slate-800/80 text-cyan-300 font-mono text-xs font-black shadow-lg">
+            <div className="px-2.5 py-1.5 rounded-xl bg-slate-950/85 backdrop-blur-sm border border-slate-800 text-cyan-300 font-mono text-xs font-black shadow-lg">
               {currentSpeedKmh} <span className="text-[9px] font-sans font-semibold text-slate-400">KM/H</span>
             </div>
 
             {/* Fuel Bar */}
-            <div className="w-24 sm:w-32 bg-slate-950/80 backdrop-blur-sm border border-slate-800/80 rounded-xl p-1.5 flex items-center gap-1.5 shadow-lg">
+            <div className="w-24 sm:w-32 bg-slate-950/85 backdrop-blur-sm border border-slate-800 rounded-xl p-1.5 flex items-center gap-1.5 shadow-lg">
               <Fuel className={`w-3.5 h-3.5 shrink-0 ${fuelPercent <= 20 ? 'text-rose-500 animate-pulse' : 'text-[#8BCB3D]'}`} />
               <div className="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
@@ -891,29 +1086,54 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
         )}
 
         {/* ========================================================================= */}
-        {/* 4. GAME START OVERLAY ("HILL CLIMB", "READY?", "[ START DRIVE ]")          */}
+        {/* 4. PRE-GAME MAIN MENU SCREEN                                              */}
         {/* ========================================================================= */}
-        {status === 'start_screen' && (
-          <div className="absolute inset-0 z-40 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center animate-in fade-in">
-            <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-[#1688C9] to-[#8BCB3D] text-white flex items-center justify-center mb-3 shadow-2xl border-2 border-white/20">
-              <span className="font-black text-2xl tracking-tighter">3D</span>
-            </div>
-            
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mb-1">
-              HILL CLIMB
-            </h2>
-            <p className="text-sm font-bold text-cyan-300 uppercase tracking-widest mb-6">
-              READY?
-            </p>
+        {(status === 'menu' || status === 'start_screen') && (
+          <HillClimbMenu
+            progress={progress}
+            profile={profile}
+            onPlay={(levelNumber) => handleStartLevel(levelNumber || progress.unlockedLevel || 1)}
+            onOpenLevels={() => setStatus('level_select')}
+            onOpenLeaderboard={() => setStatus('leaderboard')}
+            onOpenSettings={() => setStatus('settings')}
+            onExit={onExit}
+          />
+        )}
 
-            <button
-              onClick={handleStartGame}
-              className="w-full max-w-xs py-4 rounded-2xl bg-[#8BCB3D] hover:bg-[#7cb736] text-slate-950 font-black text-base uppercase tracking-wider flex items-center justify-center gap-3 shadow-[0_0_25px_rgba(139,203,61,0.6)] transition-all transform hover:scale-105 active:scale-95 cursor-pointer border-2 border-white"
-            >
-              <Play className="w-5 h-5 fill-current" />
-              <span>START DRIVE</span>
-            </button>
-          </div>
+        {/* ========================================================================= */}
+        {/* 4B. LEVEL SELECT SCREEN                                                   */}
+        {/* ========================================================================= */}
+        {status === 'level_select' && (
+          <HillClimbLevelSelect
+            progress={progress}
+            onSelectLevel={(levelNum) => handleStartLevel(levelNum)}
+            onClose={() => setStatus('menu')}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* 4C. LEADERBOARD SCREEN                                                    */}
+        {/* ========================================================================= */}
+        {status === 'leaderboard' && (
+          <HillClimbLeaderboard
+            profile={profile}
+            initialLevel={currentLevelNumber}
+            onClose={() => setStatus('menu')}
+          />
+        )}
+
+        {/* ========================================================================= */}
+        {/* 4D. SETTINGS SCREEN                                                       */}
+        {/* ========================================================================= */}
+        {status === 'settings' && (
+          <HillClimbSettings
+            onClose={() => {
+              const s = HillClimbStorage.getSettings();
+              setSoundSettings(s);
+              setSoundEnabled(s.soundEnabled);
+              setStatus('menu');
+            }}
+          />
         )}
 
         {/* ========================================================================= */}
@@ -1078,14 +1298,16 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
           </div>
           <h3 className="text-xl font-black text-white mb-1">Drive Paused</h3>
           <p className="text-xs text-slate-300 mb-5">
-            Distance: {distanceMeters}m • Coins: {coinsCount} • Score: {normalizedScore} PTS
+            Level {currentLevelNumber}: {currentLevelConfigRef.current.name} • {distanceMeters}m / {currentLevelConfigRef.current.targetDistance}m
           </p>
 
           <div className="w-full max-w-xs space-y-2.5">
             <button
               onClick={() => {
                 setStatus('playing');
-                HillRiderAudio.startEngine();
+                if (soundSettings.engineSound) {
+                  HillRiderAudio.startEngine();
+                }
                 lastTimeRef.current = performance.now();
               }}
               className="w-full py-3 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb736] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-95 cursor-pointer"
@@ -1099,118 +1321,68 @@ export const HillRiderGame: React.FC<HillRiderGameProps> = ({
               className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Restart Run</span>
+              <span>Restart Level</span>
             </button>
 
             <button
-              onClick={onExit}
+              onClick={() => setStatus('level_select')}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Select Level</span>
+            </button>
+
+            <button
+              onClick={() => setStatus('menu')}
               className="w-full py-2 text-xs text-slate-400 hover:text-white font-semibold transition-colors cursor-pointer"
             >
-              Exit to Arcade
+              Main Menu
             </button>
           </div>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* 8. FINAL RESULTS SCREEN (DISTANCE, COINS, SCORE, TOURNAMENT POINTS)      */}
+      {/* 8. LEVEL VICTORY MODAL                                                    */}
       {/* ========================================================================= */}
-      {status === 'game_over' && (
-        <div className="absolute inset-0 z-50 bg-gradient-to-b from-[#1688C9] via-[#0b517b] to-[#02142B] flex flex-col items-center justify-center p-5 text-center animate-in zoom-in-95 overflow-y-auto">
-          
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#8BCB3D]/20 border border-[#8BCB3D]/50 text-[#8BCB3D] text-xs font-black uppercase tracking-wider mb-2">
-            <Award className="w-4 h-4" />
-            <span>
-              {crashReason === 'time_up'
-                ? "TIME'S UP! (2:00)"
-                : crashReason === 'out_of_fuel'
-                ? 'OUT OF FUEL'
-                : crashReason === 'off_road'
-                ? 'OFF ROAD / CRASHED'
-                : 'VEHICLE FLIPPED'}
-            </span>
-          </div>
+      {status === 'level_complete' && lastRunStats && (
+        <HillClimbVictoryModal
+          levelConfig={currentLevelConfigRef.current}
+          score={lastRunStats.score}
+          stars={lastRunStats.stars}
+          coinsEarned={lastRunStats.coins}
+          timeSeconds={Math.round(lastRunStats.timeTaken)}
+          isNewBest={lastRunStats.isNewRecord}
+          bestScore={progress.completedLevels[currentLevelNumber]?.bestScore || lastRunStats.score}
+          unlockedNext={lastRunStats.unlockedNextLevel}
+          onNextLevel={() => {
+            const nextLevel = currentLevelNumber + 1;
+            if (nextLevel <= 40) {
+              handleStartLevel(nextLevel);
+            } else {
+              setStatus('level_select');
+            }
+          }}
+          onReplay={() => handleStartLevel(currentLevelNumber)}
+          onOpenLevels={() => setStatus('level_select')}
+          onOpenMenu={() => setStatus('menu')}
+        />
+      )}
 
-          {normalizedScore >= userData.bestScore && normalizedScore > 0 && (
-            <div className="mb-2 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-300 font-black text-xs flex items-center gap-1.5 animate-pulse">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>NEW PERSONAL BEST SCORE!</span>
-            </div>
-          )}
-
-          {/* FINAL SCORE (Clamped to 400 PTS) */}
-          <div className="text-4xl sm:text-5xl font-black text-white font-mono tracking-tight mb-0.5">
-            {normalizedScore}
-          </div>
-          <div className="text-[11px] text-slate-300 uppercase tracking-widest font-semibold mb-4">
-            FINAL SCORE
-          </div>
-
-          {/* Performance Matrix */}
-          <div className="w-full max-w-xs grid grid-cols-2 gap-2 mb-4 text-left">
-            <div className="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
-              <div className="text-[9px] text-slate-400 uppercase font-semibold">DISTANCE</div>
-              <div className="text-[#8BCB3D] font-black font-mono text-sm sm:text-base">
-                {distanceMeters}m
-              </div>
-            </div>
-
-            <div className="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
-              <div className="text-[9px] text-slate-400 uppercase font-semibold">COINS COLLECTED</div>
-              <div className="text-amber-400 font-black font-mono text-sm sm:text-base flex items-center gap-1">
-                <Coins className="w-3.5 h-3.5 fill-amber-400" />
-                <span>+{coinsCount}</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
-              <div className="text-[9px] text-slate-400 uppercase font-semibold">BEST DISTANCE</div>
-              <div className="text-cyan-400 font-black font-mono text-sm sm:text-base">
-                {Math.max(distanceMeters, userData.bestDistance)}m
-              </div>
-            </div>
-
-            <div className="bg-slate-900/80 rounded-xl p-2.5 border border-slate-800">
-              <div className="text-[9px] text-slate-400 uppercase font-semibold">BEST SCORE</div>
-              <div className="text-amber-300 font-black font-mono text-sm sm:text-base">
-                {Math.max(normalizedScore, userData.bestScore)} PTS
-              </div>
-            </div>
-
-            <div className="col-span-2 bg-slate-900/80 rounded-xl p-2.5 border border-slate-800 flex items-center justify-between">
-              <div>
-                <div className="text-[9px] text-slate-400 uppercase font-semibold">TOURNAMENT POINTS</div>
-                <div className="text-[#8BCB3D] font-black font-mono text-sm sm:text-base">
-                  +{normalizedScore} PTS
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-[9px] text-slate-400 uppercase font-semibold">TOTAL RUNS</div>
-                <div className="text-slate-300 font-black font-mono text-sm sm:text-base">
-                  #{userData.totalRuns + 1}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons: PLAY AGAIN, EXIT */}
-          <div className="w-full max-w-xs space-y-2">
-            <button
-              onClick={handleRestartRun}
-              className="w-full py-3 rounded-xl bg-[#8BCB3D] hover:bg-[#68a81b] text-slate-950 font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-xl transition-transform active:scale-95 cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>PLAY AGAIN</span>
-            </button>
-
-            <button
-              onClick={onExit}
-              className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              EXIT
-            </button>
-          </div>
-        </div>
+      {/* ========================================================================= */}
+      {/* 9. LEVEL FAILURE MODAL                                                    */}
+      {/* ========================================================================= */}
+      {(status === 'level_failed' || status === 'game_over') && lastRunStats && (
+        <HillClimbFailureModal
+          levelConfig={currentLevelConfigRef.current}
+          crashReason={lastRunStats.reason || crashReason}
+          distance={lastRunStats.distance}
+          score={lastRunStats.score}
+          bestScore={progress.completedLevels[currentLevelNumber]?.bestScore || 0}
+          onRetry={() => handleStartLevel(currentLevelNumber)}
+          onOpenLevels={() => setStatus('level_select')}
+          onOpenMenu={() => setStatus('menu')}
+        />
       )}
     </div>
   );

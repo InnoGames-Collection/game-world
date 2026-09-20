@@ -9,7 +9,7 @@
  * - Clean, responsive UI with zero shortcode dependencies
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   UserProfile, 
   GameDefinition, 
@@ -21,7 +21,6 @@ import {
   User, 
   Phone, 
   Coins, 
-  Wallet, 
   Gamepad2, 
   Trophy, 
   Gift, 
@@ -50,6 +49,8 @@ import { PrivacyPage } from './content/PrivacyPage';
 import { EntitlementService } from '../services/entitlementService';
 import { GameCatalog } from '../services/gameCatalog';
 import { catalogGameToDefinition } from '../games/registry';
+import { GoPlayLogo } from '../components/GoPlayLogo';
+import { TournamentService } from '../services/tournamentService';
 
 export type ProfileSubView =
   | null
@@ -98,6 +99,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   const phone = profile.phoneNumber || '0911234890';
   const maskedMsisdn = `${phone.slice(0, 3)}*****${phone.slice(-3)}`;
+
+  // Real highest valid competitive game score from existing system
+  const bestScore = useMemo(() => {
+    const scores = Object.values(profile.highScores || {}) as number[];
+    const maxProfileScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const tournamentSummary = TournamentService.getTournamentSummary(profile);
+    const tournamentBest = tournamentSummary.currentUserBestScore || 0;
+    return Math.max(maxProfileScore, tournamentBest);
+  }, [profile]);
 
   // Played or unlocked games
   const recentlyPlayedIds = EntitlementService.getRecentlyPlayedIds();
@@ -152,6 +162,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   }
 
   if (subView === 'my_games') {
+    const allAvailableGames = GameCatalog.getAll().map(catalogGameToDefinition);
+
     return (
       <div className="min-h-screen bg-white text-[#17202A] pb-24 max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 pt-3 select-none space-y-4">
         <div className="flex items-center justify-between gap-3 bg-[#1688C9] text-white p-3.5 rounded-2xl shadow-xs">
@@ -164,47 +176,47 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </button>
             <h1 className="text-base font-black tracking-tight">My Games</h1>
           </div>
+          <span className="text-xs font-bold text-blue-100">
+            {allAvailableGames.length} Games
+          </span>
         </div>
 
-        {myGamesList.length > 0 ? (
-          <div className="space-y-2.5">
-            {myGamesList.map((g) => (
+        <div className="space-y-2.5">
+          {allAvailableGames.map((g) => {
+            const personalHighScore = profile.highScores?.[g.id] ?? 0;
+            return (
               <div
                 key={g.id}
-                onClick={() => onPlayGame(g)}
-                className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-200 hover:border-[#1688C9] transition-all cursor-pointer shadow-xs"
+                className="flex items-center justify-between p-3 rounded-2xl bg-white border border-slate-200 hover:border-[#1688C9] transition-all shadow-xs"
               >
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <img
                     src={g.thumbnailUrl || g.bannerUrl}
                     alt={g.title}
-                    className="w-12 h-12 rounded-xl object-cover bg-slate-900"
+                    className="w-12 h-12 rounded-xl object-cover bg-slate-900 shrink-0"
                   />
-                  <div>
-                    <h4 className="text-sm font-black text-[#17202A]">{g.title}</h4>
-                    <span className="text-xs text-slate-500 capitalize">{g.category}</span>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-black text-[#17202A] truncate">{g.title}</h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[11px] text-slate-500 capitalize">{g.category}</span>
+                      <span className="text-[10px] text-slate-300">•</span>
+                      <span className="text-[11px] font-extrabold text-[#1688C9]">
+                        Best: {personalHighScore > 0 ? `${personalHighScore.toLocaleString()} pts` : '-'}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="px-3.5 py-1.5 rounded-xl bg-[#8BCB3D] text-white text-xs font-black"
+                  onClick={() => onPlayGame(g)}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] active:scale-95 text-white text-xs font-black shrink-0 transition-transform cursor-pointer shadow-xs"
                 >
                   Play
                 </button>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200">
-            <p className="text-sm font-bold text-slate-600">No played games recorded yet.</p>
-            <button
-              onClick={() => setSubView(null)}
-              className="mt-3 px-4 py-2 rounded-xl bg-[#1688C9] text-white text-xs font-black cursor-pointer"
-            >
-              Explore Catalog
-            </button>
-          </div>
-        )}
+            );
+          })}
+        </div>
       </div>
     );
   }
@@ -254,22 +266,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   return (
     <div className="min-h-screen bg-white text-[#17202A] pb-24 max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 pt-3 space-y-4 select-none">
       
-      {/* 1. TOP: Authenticated telebirr SuperApp Identity Card */}
+      {/* Official GoPlay Profile Brand Header */}
+      <div className="flex flex-col items-center justify-center py-2">
+        <GoPlayLogo size="lg" />
+      </div>
+
+      {/* 1. TOP: Authenticated GoPlay Profile Card */}
       <div 
-        id="profile-telebirr-card"
-        className="rounded-3xl bg-[#1688C9] text-white p-4.5 shadow-sm space-y-3"
+        id="profile-account-card"
+        className="rounded-3xl bg-[#1688C9] text-white p-4.5 shadow-sm"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-white/15 border border-white/20 text-[#8BCB3D] flex items-center justify-center font-black">
-              <Phone className="w-5 h-5 stroke-[2.5]" />
+            <div className="w-12 h-12 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xs shrink-0">
+              <GoPlayLogo size="xs" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-blue-100 font-black uppercase tracking-wider">
-                  telebirr SuperApp Identity
+                  GoPlay Account
                 </span>
-                <span className="px-1.5 py-0.2 rounded-md bg-[#8BCB3D] text-white text-[8px] font-black uppercase">
+                <span className="px-1.5 py-0.5 rounded-md bg-[#8BCB3D] text-white text-[8px] font-black uppercase tracking-wider">
                   VERIFIED
                 </span>
               </div>
@@ -280,55 +297,68 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           <button
+            id="profile-top-up-btn"
+            type="button"
             onClick={onOpenBuyCoins}
-            className="px-3 py-1.5 rounded-full bg-[#8BCB3D] hover:bg-[#7cb934] text-white text-xs font-black flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer"
+            className="px-3.5 py-2 rounded-full bg-[#8BCB3D] hover:bg-[#7cb934] text-white text-xs font-black flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer shrink-0"
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
             <span>Top Up</span>
           </button>
         </div>
+      </div>
 
-        {/* 3 Balances: Available Coins | telebirr Balance | Active Subscriptions */}
-        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/15">
-          <div 
-            onClick={onOpenBuyCoins}
-            className="text-center p-2 rounded-2xl bg-white/10 cursor-pointer hover:bg-white/15 transition-colors"
-          >
-            <div className="text-[9px] font-bold text-blue-100 uppercase">Coins</div>
-            <div className="text-xs sm:text-sm font-black text-white mt-0.5 flex items-center justify-center gap-1">
-              <span>🪙</span>
-              <span>{profile.coins ?? 50}</span>
+      {/* 2. STATS: AVAILABLE COINS | BEST SCORE (Two equal-width professional cards) */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Available Coins */}
+        <div 
+          id="profile-stat-available-coins"
+          onClick={onOpenBuyCoins}
+          className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs hover:border-[#8BCB3D]/50 transition-all cursor-pointer flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between gap-1 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 tracking-wider uppercase">
+              Available Coins
+            </span>
+            <div className="w-6 h-6 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0">
+              <Coins className="w-3.5 h-3.5 text-amber-600" />
             </div>
           </div>
+          <div className="text-xl sm:text-2xl font-black text-[#17202A] font-mono">
+            {(profile.coins ?? 50).toLocaleString()}
+          </div>
+        </div>
 
-          <div className="text-center p-2 rounded-2xl bg-white/10">
-            <div className="text-[9px] font-bold text-blue-100 uppercase">telebirr Wallet</div>
-            <div className="text-xs sm:text-sm font-black text-white mt-0.5">
-              {profile.telebirrBalance.toFixed(2)} ETB
+        {/* Best Score */}
+        <div 
+          id="profile-stat-best-score"
+          onClick={() => setSubView('my_scores')}
+          className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs hover:border-[#1688C9]/50 transition-all cursor-pointer flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between gap-1 mb-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 tracking-wider uppercase">
+              Best Score
+            </span>
+            <div className="w-6 h-6 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+              <Trophy className="w-3.5 h-3.5 text-[#1688C9]" />
             </div>
           </div>
-
-          <div 
-            onClick={() => setSubView('subscriptions')}
-            className="text-center p-2 rounded-2xl bg-white/10 cursor-pointer hover:bg-white/15 transition-colors"
-          >
-            <div className="text-[9px] font-bold text-blue-100 uppercase">All-Access Pass</div>
-            <div className="text-xs sm:text-sm font-black text-[#8BCB3D] mt-0.5">
-              {profile.subscription?.isActive ? 'ACTIVE' : 'NONE'}
-            </div>
+          <div className="text-xl sm:text-2xl font-black text-[#17202A] font-mono flex items-baseline gap-1">
+            <span>{bestScore.toLocaleString()}</span>
+            <span className="text-xs font-bold text-slate-400 font-sans">pts</span>
           </div>
         </div>
       </div>
 
-      {/* 2. MENU ITEMS */}
+      {/* 3. PROFILE MENU ITEMS */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden divide-y divide-slate-100">
         {[
-          { id: 'subscriptions', label: 'All-Access Passes & Subscriptions', icon: CreditCard, count: activeSubsCount ? '1 Active' : undefined },
-          { id: 'pricing', label: 'Pricing & Coin Packages', icon: Coins },
-          { id: 'my_games', label: 'My Games', icon: Gamepad2, count: myGamesList.length.toString() },
+          { id: 'subscriptions', label: 'Subscription', icon: CreditCard },
+          { id: 'pricing', label: 'Pricing', icon: Coins },
+          { id: 'my_games', label: 'My Games', icon: Gamepad2 },
           { id: 'my_scores', label: 'My High Scores', icon: Trophy },
-          { id: 'faq', label: 'Frequently Asked Questions (FAQ)', icon: HelpCircle },
-          { id: 'help_support', label: 'Help & Customer Care', icon: Headphones },
+          { id: 'faq', label: 'FAQ', icon: HelpCircle },
+          { id: 'help_support', label: 'Help & Support', icon: Headphones },
           { id: 'terms', label: 'Terms & Conditions', icon: FileText },
           { id: 'privacy', label: 'Privacy Policy', icon: ShieldCheck },
         ].map((item) => {
@@ -336,6 +366,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           return (
             <button
               key={item.id}
+              id={`profile-menu-item-${item.id}`}
               onClick={() => setSubView(item.id as ProfileSubView)}
               className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
             >
@@ -349,11 +380,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {item.count && (
-                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold">
-                    {item.count}
-                  </span>
-                )}
                 <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-[#1688C9] transition-transform" />
               </div>
             </button>
@@ -385,10 +411,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         </button>
       </div>
 
-      {/* telebirr Mini-App Info */}
+      {/* GoPlay Info */}
       <div className="text-center pt-2 text-[10px] text-slate-400 font-bold space-y-0.5">
-        <div>GameON Tele v2.0 • telebirr Mini-App Edition</div>
-        <div>telebirr SuperApp Verified Service</div>
+        <div>GoPlay v2.0 • Gaming Edition</div>
+        <div>Official Gaming Portal</div>
       </div>
 
     </div>
