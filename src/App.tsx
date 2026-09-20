@@ -36,7 +36,6 @@ import { GamesPage } from './pages/GamesPage';
 import { TournamentPage } from './pages/TournamentPage';
 import { LeaderboardPage } from './pages/LeaderboardPage';
 import { ProfilePage } from './pages/ProfilePage';
-import { AdminPortalPage } from './pages/admin/AdminPortalPage';
 import { GamesContentPage } from './pages/content/GamesContentPage';
 import { FAQPage } from './pages/content/FAQPage';
 import { HelpSupportPage } from './pages/content/HelpSupportPage';
@@ -95,9 +94,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const hasTelebirrParams = params.has('msisdn') || params.has('token') || params.has('from');
     
-    if (params.get('tab') === 'admin' || params.get('admin') === 'true') {
-      setActiveTab('admin');
-    } else if (hasTelebirrParams || !sessionStorage.getItem('telebirr_handshake_seen')) {
+    if (hasTelebirrParams || !sessionStorage.getItem('telebirr_handshake_seen')) {
       setIsHandshakeOpen(true);
       sessionStorage.setItem('telebirr_handshake_seen', 'true');
     }
@@ -419,14 +416,6 @@ export default function App() {
                   onPlayGame={handlePlayGame}
                   onOpenBuyCoins={() => setIsCoinTopupOpen(true)}
                   onProfileUpdate={setProfile}
-                  onOpenAdmin={() => setActiveTab('admin')}
-                />
-              )}
-
-              {activeTab === 'admin' && (
-                <AdminPortalPage
-                  profile={profile}
-                  onBack={() => setActiveTab('home')}
                 />
               )}
             </>

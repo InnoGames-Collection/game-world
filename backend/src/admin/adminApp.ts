@@ -7,7 +7,7 @@ export async function adminPortalRoutes(fastify: FastifyInstance) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GAMEON TELE — Enterprise Admin Console</title>
+  <title>GoPlay — Enterprise Operations Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -24,9 +24,9 @@ export async function adminPortalRoutes(fastify: FastifyInstance) {
       </div>
       <div>
         <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
-          GAMEON TELE <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Tier-0 Admin</span>
+          GoPlay <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Tier-0 Operations</span>
         </h1>
-        <p class="text-xs text-slate-400">EthioTelecom Gaming Platform Operation Console</p>
+        <p class="text-xs text-slate-400">telebirr SuperApp Gaming Operations Console</p>
       </div>
     </div>
     <div class="flex items-center gap-4">
@@ -124,7 +124,7 @@ export async function adminPortalRoutes(fastify: FastifyInstance) {
   </div>
 
   <script>
-    let currentToken = localStorage.getItem('gameon_admin_token') || '';
+    let currentToken = localStorage.getItem('goplay_admin_token') || '';
 
     async function initAdmin() {
       if (!currentToken) {
@@ -138,7 +138,7 @@ export async function adminPortalRoutes(fastify: FastifyInstance) {
           const data = await res.json();
           if (data.tokens) {
             currentToken = data.tokens.accessToken;
-            localStorage.setItem('gameon_admin_token', currentToken);
+            localStorage.setItem('goplay_admin_token', currentToken);
           }
         } catch(e) {}
       }
@@ -165,7 +165,7 @@ export async function adminPortalRoutes(fastify: FastifyInstance) {
           <div class="glass p-5 rounded-2xl border border-slate-800">
             <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Players</div>
             <div class="text-2xl font-black text-white mt-1">\${m.totalUsers || 0}</div>
-            <div class="text-xs text-emerald-400 mt-2"><i class="fa fa-users"></i> EthioTelecom MSISDN</div>
+            <div class="text-xs text-emerald-400 mt-2"><i class="fa fa-users"></i> telebirr MSISDN</div>
           </div>
           <div class="glass p-5 rounded-2xl border border-slate-800">
             <div class="text-xs text-slate-400 font-medium uppercase tracking-wider">Total Matches Played</div>
@@ -306,7 +306,7 @@ export async function adminPortalRoutes(fastify: FastifyInstance) {
     }
 
     function logoutAdmin() {
-      localStorage.removeItem('gameon_admin_token');
+      localStorage.removeItem('goplay_admin_token');
       location.reload();
     }
 
