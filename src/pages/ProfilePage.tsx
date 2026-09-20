@@ -83,6 +83,7 @@ interface ProfilePageProps {
   onSignOut?: () => void;
   onOpenBuyCoins?: () => void;
   onProfileUpdate?: (updated: UserProfile) => void;
+  onOpenAdmin?: () => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -93,6 +94,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onPlayGame,
   onOpenBuyCoins,
   onProfileUpdate,
+  onOpenAdmin,
 }) => {
   const [subView, setSubView] = useState<ProfileSubView>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -409,6 +411,27 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             }`}
           />
         </button>
+      </div>
+
+      {/* Operations Admin Portal Entry */}
+      <div className="p-3.5 rounded-2xl bg-[#17202A] text-white flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-xs font-black">Operations Admin Portal</div>
+            <div className="text-[10px] text-slate-400">Dashboard, Tournaments & Anti-Cheat</div>
+          </div>
+        </div>
+        {onOpenAdmin && (
+          <button
+            onClick={onOpenAdmin}
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl cursor-pointer transition-colors shadow-xs"
+          >
+            Launch
+          </button>
+        )}
       </div>
 
       {/* GoPlay Info */}

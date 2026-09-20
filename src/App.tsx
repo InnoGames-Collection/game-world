@@ -91,11 +91,13 @@ export default function App() {
   const [completedReceipt, setCompletedReceipt] = useState<PaymentReceiptData | null>(null);
 
   useEffect(() => {
-    // Check if entered from telebirr or initial session
+    // Check if entered from telebirr or initial session or admin tab
     const params = new URLSearchParams(window.location.search);
     const hasTelebirrParams = params.has('msisdn') || params.has('token') || params.has('from');
     
-    if (hasTelebirrParams || !sessionStorage.getItem('telebirr_handshake_seen')) {
+    if (params.get('tab') === 'admin' || params.get('admin') === 'true') {
+      setActiveTab('admin');
+    } else if (hasTelebirrParams || !sessionStorage.getItem('telebirr_handshake_seen')) {
       setIsHandshakeOpen(true);
       sessionStorage.setItem('telebirr_handshake_seen', 'true');
     }
@@ -417,6 +419,7 @@ export default function App() {
                   onPlayGame={handlePlayGame}
                   onOpenBuyCoins={() => setIsCoinTopupOpen(true)}
                   onProfileUpdate={setProfile}
+                  onOpenAdmin={() => setActiveTab('admin')}
                 />
               )}
 
