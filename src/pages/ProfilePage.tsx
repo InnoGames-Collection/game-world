@@ -84,6 +84,7 @@ interface ProfilePageProps {
   onOpenBuyCoins?: () => void;
   onProfileUpdate?: (updated: UserProfile) => void;
   onOpenAdmin?: () => void;
+  onNavigateContent?: (section: 'games' | 'faq' | 'help_support' | 'subscription' | 'pricing' | 'terms' | 'privacy') => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({
@@ -95,6 +96,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onOpenBuyCoins,
   onProfileUpdate,
   onOpenAdmin,
+  onNavigateContent,
 }) => {
   const [subView, setSubView] = useState<ProfileSubView>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -369,7 +371,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <button
               key={item.id}
               id={`profile-menu-item-${item.id}`}
-              onClick={() => setSubView(item.id as ProfileSubView)}
+              onClick={() => {
+                if (onNavigateContent) {
+                  if (item.id === 'subscriptions') return onNavigateContent('subscription');
+                  if (item.id === 'pricing') return onNavigateContent('pricing');
+                  if (item.id === 'faq') return onNavigateContent('faq');
+                  if (item.id === 'help_support') return onNavigateContent('help_support');
+                  if (item.id === 'terms') return onNavigateContent('terms');
+                  if (item.id === 'privacy') return onNavigateContent('privacy');
+                }
+                setSubView(item.id as ProfileSubView);
+              }}
               className="w-full px-4 py-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-left group cursor-pointer"
             >
               <div className="flex items-center gap-3">

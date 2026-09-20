@@ -29,7 +29,7 @@ export const TelebirrPurchaseConsentModal: React.FC<TelebirrPurchaseConsentModal
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
       <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[94vh]">
         {/* Top Telebirr Navigation Bar */}
         <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">

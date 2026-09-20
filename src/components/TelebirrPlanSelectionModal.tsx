@@ -66,7 +66,7 @@ export const TelebirrPlanSelectionModal: React.FC<TelebirrPlanSelectionModalProp
   const selectedPlan = GAME_PLANS.find((p) => p.id === selectedPlanId) || GAME_PLANS[0];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
       <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         {/* Top Telebirr Navigation Bar */}
         <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center justify-between">

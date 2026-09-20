@@ -105,26 +105,147 @@ export default function App() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Handle browser back button when a content page is open
+  // Universal Navigation & History Stack Coordinator
+  const openOverlay = (tag: string, action: () => void) => {
+    window.history.pushState({ goplay_layer: tag }, '');
+    action();
+  };
+
+  const closeOverlay = (fallback: () => void) => {
+    if (window.history.state?.goplay_layer) {
+      window.history.back();
+    } else {
+      fallback();
+    }
+  };
+
+  // Comprehensive Mobile Phone Back Button (popstate) Handler
   useEffect(() => {
     const handlePopState = () => {
+      // 1. Critical Telebirr payment/receipt dialogs
+      if (completedReceipt) {
+        setCompletedReceipt(null);
+        return;
+      }
+      if (selectedPlanForPayment) {
+        setSelectedPlanForPayment(null);
+        return;
+      }
+      if (selectedPlanForConsent) {
+        setSelectedPlanForConsent(null);
+        setIsPlanModalOpen(true);
+        return;
+      }
+      if (isPlanModalOpen) {
+        setIsPlanModalOpen(false);
+        return;
+      }
+
+      // 2. Action modals
+      if (isCoinTopupOpen) {
+        setIsCoinTopupOpen(false);
+        return;
+      }
+      if (selectedGameForDetails) {
+        setSelectedGameForDetails(null);
+        return;
+      }
+      if (pendingAccessGame) {
+        setPendingAccessGame(null);
+        return;
+      }
+      if (isLegalModalOpen) {
+        setIsLegalModalOpen(false);
+        return;
+      }
+
+      // 3. Main Menu Drawer
+      if (isMainMenuOpen) {
+        setIsMainMenuOpen(false);
+        return;
+      }
+
+      // 4. Fullscreen Active Game Session
+      if (activeGameToLaunch) {
+        closeGameLauncher();
+        return;
+      }
+
+      // 5. Dedicated Content Views (Subscriptions, Pricing, FAQ, Terms, etc.)
       if (contentView !== null) {
         setContentView(null);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      // 6. Navigation Tabs
+      if (activeTab !== 'home') {
+        setActiveTab('home');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
       }
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [contentView]);
+  }, [
+    completedReceipt,
+    selectedPlanForPayment,
+    selectedPlanForConsent,
+    isPlanModalOpen,
+    isCoinTopupOpen,
+    selectedGameForDetails,
+    pendingAccessGame,
+    isLegalModalOpen,
+    isMainMenuOpen,
+    activeGameToLaunch,
+    contentView,
+    activeTab,
+    closeGameLauncher,
+  ]);
 
   const navigateToContentSection = (section: MainMenuSection) => {
-    window.history.pushState({ contentView: section }, '');
-    setContentView(section);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsMainMenuOpen(false);
+    openOverlay(`content_${section}`, () => {
+      setContentView(section);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   };
 
   const handleBackFromContent = () => {
-    setContentView(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    closeOverlay(() => {
+      setContentView(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  };
+
+  const handleOpenMainMenu = () => {
+    openOverlay('menu', () => setIsMainMenuOpen(true));
+  };
+
+  const handleCloseMainMenu = () => {
+    closeOverlay(() => setIsMainMenuOpen(false));
+  };
+
+  const handleOpenCoinTopup = () => {
+    setIsMainMenuOpen(false);
+    openOverlay('coin_topup', () => setIsCoinTopupOpen(true));
+  };
+
+  const handleCloseCoinTopup = () => {
+    closeOverlay(() => setIsCoinTopupOpen(false));
+  };
+
+  const handleOpenGameDetails = (g: GameDefinition) => {
+    openOverlay(`details_${g.id}`, () => setSelectedGameForDetails(g));
+  };
+
+  const handleCloseGameDetails = () => {
+    closeOverlay(() => setSelectedGameForDetails(null));
+  };
+
+  const handleCloseGameLauncher = () => {
+    closeOverlay(() => closeGameLauncher());
   };
 
   const allGames = GameRegistry.getAllGames();
@@ -151,18 +272,15 @@ export default function App() {
    * 3. Expired subscription pass or unsubscribed -> open Telebirr Plan Selection Modal!
    */
   const handlePlayGame = (game: GameDefinition) => {
+    setIsMainMenuOpen(false);
+    setSelectedGameForDetails(null);
+    setPendingAccessGame(null);
+
     const isFree = game.id === 'candy-blast' || game.id === 'world-legends' || game.isFree;
 
-    if (isFree) {
+    if (isFree || isSubscriptionValid()) {
       EntitlementService.recordGamePlayed(game.id);
-      launchGame(game);
-      return;
-    }
-
-    // Check on-demand 24h pass validity
-    if (isSubscriptionValid()) {
-      EntitlementService.recordGamePlayed(game.id);
-      launchGame(game);
+      openOverlay(`game_${game.id}`, () => launchGame(game));
       return;
     }
 
@@ -171,7 +289,7 @@ export default function App() {
       showToast('info', 'Your 24-hour pass has expired. Select a plan to continue.', 'Pass Expired');
     }
 
-    setIsPlanModalOpen(true);
+    openOverlay('plan_selection', () => setIsPlanModalOpen(true));
   };
 
   const handleAccessGranted = (updatedProfile: typeof profile, gameToPlay: CatalogGame) => {
@@ -181,7 +299,7 @@ export default function App() {
     showToast('success', `Access granted to ${gameToPlay.gameName}!`, 'telebirr Authorized');
     const def = GameRegistry.getGameById(gameToPlay.gameId);
     if (def) {
-      launchGame(def);
+      openOverlay(`game_${def.id}`, () => launchGame(def));
     }
   };
 
@@ -204,20 +322,20 @@ export default function App() {
   // On-Demand Plan Flow Handlers
   const handleSelectPlan = (plan: GamePlan) => {
     setIsPlanModalOpen(false);
-    setSelectedPlanForConsent(plan);
+    openOverlay(`consent_${plan.id}`, () => setSelectedPlanForConsent(plan));
   };
 
   const handleConfirmConsent = () => {
     const plan = selectedPlanForConsent;
     setSelectedPlanForConsent(null);
     if (plan) {
-      setSelectedPlanForPayment(plan);
+      openOverlay(`payment_${plan.id}`, () => setSelectedPlanForPayment(plan));
     }
   };
 
   const handlePaymentSuccess = (receipt: PaymentReceiptData) => {
     setSelectedPlanForPayment(null);
-    setCompletedReceipt(receipt);
+    openOverlay('receipt', () => setCompletedReceipt(receipt));
   };
 
   const handleReceiptConfirmed = () => {
@@ -240,7 +358,7 @@ export default function App() {
 
     setProfile(updated);
     StorageService.saveProfile(updated);
-    setCompletedReceipt(null);
+    closeOverlay(() => setCompletedReceipt(null));
     showToast(
       'success',
       `On-Demand ${completedReceipt.plan.name} activated! Valid for ${completedReceipt.plan.durationLabel}.`,
@@ -285,12 +403,14 @@ export default function App() {
           </div>
         )}
 
-        {/* 1. Global Native Mini-App Header */}
-        <Header
-          profile={profile}
-          onOpenBuyCoins={() => setIsCoinTopupOpen(true)}
-          onOpenMenu={() => setIsMainMenuOpen(true)}
-        />
+        {/* 1. Global Native Mini-App Header (Hidden in dedicated content views to prevent stacked double headers) */}
+        {contentView === null && (
+          <Header
+            profile={profile}
+            onOpenBuyCoins={handleOpenCoinTopup}
+            onOpenMenu={handleOpenMainMenu}
+          />
+        )}
 
         {/* 2. Main Dynamic Content Area */}
         <main className="flex-1 w-full pb-20">
@@ -372,8 +492,8 @@ export default function App() {
                   games={allGames}
                   profile={profile}
                   onLaunchGame={handlePlayGame}
-                  onOpenDetails={(g) => setSelectedGameForDetails(g)}
-                  onOpenBuyCoins={() => setIsCoinTopupOpen(true)}
+                  onOpenDetails={handleOpenGameDetails}
+                  onOpenBuyCoins={handleOpenCoinTopup}
                   onNavigateToGames={(category) => {
                     setSelectedCategoryFilter(category || 'All Games');
                     setActiveTab('games');
@@ -414,8 +534,9 @@ export default function App() {
                   language={language}
                   onLanguageChange={changeLanguage}
                   onPlayGame={handlePlayGame}
-                  onOpenBuyCoins={() => setIsCoinTopupOpen(true)}
+                  onOpenBuyCoins={handleOpenCoinTopup}
                   onProfileUpdate={setProfile}
+                  onNavigateContent={navigateToContentSection}
                 />
               )}
             </>
@@ -425,14 +546,21 @@ export default function App() {
         {/* 3. Main Menu Drawer */}
         <MainMenuDrawer
           isOpen={isMainMenuOpen}
-          onClose={() => setIsMainMenuOpen(false)}
+          onClose={handleCloseMainMenu}
           onSelectSection={(sec) => navigateToContentSection(sec)}
         />
 
         {/* 4. Mobile-First Bottom Navigation Bar (5 Tabs) */}
         <BottomNav
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={(tab) => {
+            if (contentView !== null) {
+              setContentView(null);
+            }
+            setIsMainMenuOpen(false);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setActiveTab(tab);
+          }}
           labels={{
             home: 'HOME',
             games: 'GAMES',
@@ -455,7 +583,7 @@ export default function App() {
         {/* B. Choose a Plan (Daily: 10 ETB / 24h, Weekly: 50 ETB, Monthly: 175 ETB) */}
         <TelebirrPlanSelectionModal
           isOpen={isPlanModalOpen}
-          onClose={() => setIsPlanModalOpen(false)}
+          onClose={() => closeOverlay(() => setIsPlanModalOpen(false))}
           onSelectPlan={handleSelectPlan}
         />
 
@@ -466,11 +594,12 @@ export default function App() {
             plan={selectedPlanForConsent}
             onConfirm={handleConfirmConsent}
             onBack={() => {
-              const plan = selectedPlanForConsent;
-              setSelectedPlanForConsent(null);
-              setIsPlanModalOpen(true);
+              closeOverlay(() => {
+                setSelectedPlanForConsent(null);
+                setIsPlanModalOpen(true);
+              });
             }}
-            onClose={() => setSelectedPlanForConsent(null)}
+            onClose={() => closeOverlay(() => setSelectedPlanForConsent(null))}
           />
         )}
 
@@ -481,7 +610,7 @@ export default function App() {
             plan={selectedPlanForPayment}
             profile={profile}
             onSuccess={handlePaymentSuccess}
-            onCancel={() => setSelectedPlanForPayment(null)}
+            onCancel={() => closeOverlay(() => setSelectedPlanForPayment(null))}
           />
         )}
 
@@ -500,16 +629,16 @@ export default function App() {
             game={pendingAccessGame}
             profile={profile}
             isOpen={Boolean(pendingAccessGame)}
-            onClose={() => setPendingAccessGame(null)}
+            onClose={() => closeOverlay(() => setPendingAccessGame(null))}
             onAccessGranted={handleAccessGranted}
-            onOpenTopup={() => setIsCoinTopupOpen(true)}
+            onOpenTopup={handleOpenCoinTopup}
           />
         )}
 
         {/* 6. Coin Topup Modal (telebirr Instant Wallet Billing) */}
         <CoinTopupModal
           isOpen={isCoinTopupOpen}
-          onClose={() => setIsCoinTopupOpen(false)}
+          onClose={handleCloseCoinTopup}
           profile={profile}
           onProfileUpdate={setProfile}
         />
@@ -519,7 +648,7 @@ export default function App() {
           <GameDetailsModal
             game={selectedGameForDetails}
             isOpen={Boolean(selectedGameForDetails)}
-            onClose={() => setSelectedGameForDetails(null)}
+            onClose={handleCloseGameDetails}
             onPlayGame={handlePlayGame}
             hasActiveAccess={Boolean(activeEntitlements[selectedGameForDetails.id])}
           />
@@ -531,11 +660,11 @@ export default function App() {
             game={activeGameToLaunch}
             profile={profile}
             lastResult={lastGameSessionResult}
-            onClose={closeGameLauncher}
+            onClose={handleCloseGameLauncher}
             onGameOver={handleGameFinished}
             onPlayAgain={() => {
               const currentGame = activeGameToLaunch;
-              closeGameLauncher();
+              handleCloseGameLauncher();
               setTimeout(() => handlePlayGame(currentGame), 100);
             }}
             isAudioEnabled={audioEnabled}
@@ -546,7 +675,7 @@ export default function App() {
         {isLegalModalOpen && (
           <TermsAndPrivacyModal
             initialTab={legalModalTab}
-            onClose={() => setIsLegalModalOpen(false)}
+            onClose={() => closeOverlay(() => setIsLegalModalOpen(false))}
             onConfirmDeleteAccount={wipeAccountData}
           />
         )}

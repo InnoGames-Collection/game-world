@@ -21,7 +21,7 @@ export const TelebirrPaymentReceiptModal: React.FC<TelebirrPaymentReceiptModalPr
   if (!isOpen || !receipt) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
       <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[95vh]">
         {/* Top Bar: Download & Share */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-slate-100 text-xs font-bold text-[#8BCB3D]">

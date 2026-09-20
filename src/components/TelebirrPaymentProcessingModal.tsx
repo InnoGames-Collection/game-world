@@ -73,7 +73,7 @@ export const TelebirrPaymentProcessingModal: React.FC<TelebirrPaymentProcessingM
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-between select-none animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-xs flex flex-col items-center justify-between select-none animate-in fade-in duration-150">
       {/* Background Webview (Screenshots 8 & 9) */}
       <div className="w-full max-w-md bg-white flex-1 flex flex-col">
         {/* Top Telebirr Navigation Bar */}

@@ -79,15 +79,13 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const activeSubs = EntitlementService.getActiveSubscriptionsList();
-
   const handleSubscribe = (pass: typeof ALL_ACCESS_PASSES[0]) => {
     if (!profile) return;
     setErrorMsg(null);
     setSuccessMsg(null);
 
     if (profile.telebirrBalance < pass.priceETB) {
-      setErrorMsg(`Insufficient telebirr balance (${profile.telebirrBalance.toFixed(2)} ETB). Required: ${pass.priceETB} ETB.`);
+      setErrorMsg(`Insufficient balance (${profile.telebirrBalance.toFixed(2)} ETB available). Required: ${pass.priceETB} ETB.`);
       return;
     }
 
@@ -117,36 +115,43 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
       }
 
       setIsProcessing(false);
-      setSuccessMsg(`Successfully activated ${pass.name} via telebirr!`);
-      setTimeout(() => setSuccessMsg(null), 3000);
+      setSuccessMsg(`Activated ${pass.name}!`);
+      setTimeout(() => setSuccessMsg(null), 2500);
     }, 400);
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#17202A] pb-24 max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 pt-3 select-none">
-      {/* 1. Header with Back Button */}
+    <div className="min-h-screen bg-slate-50 text-[#17202A] pb-24 max-w-md sm:max-w-lg mx-auto px-4 pt-3 select-none">
+      {/* 1. Simplified Top Header */}
       {showHeader && (
-        <div className="flex items-center justify-between gap-3 bg-[#1688C9] text-white p-3.5 rounded-2xl shadow-xs mb-4">
+        <div className="flex items-center justify-between gap-3 bg-[#1688C9] text-white p-3.5 rounded-2xl shadow-sm mb-4">
           <div className="flex items-center gap-3">
             {onBack && (
               <button
                 id="subscription-back-btn"
+                type="button"
                 onClick={onBack}
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition-colors cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 active:scale-95 flex items-center justify-center text-white transition-all cursor-pointer shrink-0"
                 title="Go Back"
               >
                 <ArrowLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
             )}
             <div className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-[#8BCB3D] shrink-0" />
+              <CreditCard className="w-5 h-5 text-amber-300 shrink-0" />
               <h1 className="text-base font-black tracking-tight">Subscriptions & Passes</h1>
             </div>
           </div>
+          {profile && (
+            <div className="text-right">
+              <div className="text-[9px] text-blue-100 uppercase tracking-wider font-semibold">Wallet</div>
+              <div className="text-xs font-black font-mono">{profile.telebirrBalance.toFixed(2)} ETB</div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* 2. Messages */}
+      {/* 2. Feedback Alerts */}
       {errorMsg && (
         <div className="p-3 mb-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -155,70 +160,43 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
       )}
 
       {successMsg && (
-        <div className="p-3 mb-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2 font-bold">
+        <div className="p-3 mb-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2 font-bold animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           <span>{successMsg}</span>
         </div>
       )}
 
-      {/* 3. Active Subscriptions Overview */}
+      {/* 3. Active Subscription Banner */}
       {profile?.subscription?.isActive && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 shadow-2xs mb-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-black text-emerald-950 uppercase tracking-wide">
-                Current Active Subscription
-              </span>
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 shadow-xs mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black">
+              <Sparkles className="w-4 h-4" />
             </div>
-            <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
-              ACTIVE
-            </span>
-          </div>
-
-          <div className="flex items-baseline justify-between pt-1">
             <div>
-              <h3 className="text-base font-black text-emerald-950 capitalize">
-                {profile.subscription.plan} All-Access Plan
-              </h3>
-              <p className="text-[11px] text-emerald-700">
-                Billed directly via telebirr SuperApp
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] text-emerald-700 font-bold uppercase">Auto-Renew</div>
-              <div className="text-xs font-black text-emerald-900">Enabled</div>
+              <div className="text-xs font-black text-emerald-950 capitalize">
+                {profile.subscription.plan} All-Access Active
+              </div>
+              <div className="text-[10px] text-emerald-700">
+                Auto-renews via telebirr SuperApp
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* 4. Telebirr Wallet Balance Summary */}
-      {profile && (
-        <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs mb-4">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-[#1688C9]" />
-            <span className="font-bold text-slate-700">telebirr Wallet Balance</span>
-          </div>
-          <span className="font-black text-[#17202A]">
-            {profile.telebirrBalance.toFixed(2)} ETB
+          <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wider">
+            ACTIVE
           </span>
         </div>
       )}
 
-      {/* 5. Available Passes */}
+      {/* 4. Simplified Passes List */}
       <div className="space-y-3">
-        <div className="text-xs font-black uppercase text-slate-400 tracking-wider px-1">
-          Available All-Access Passes
-        </div>
-
         {ALL_ACCESS_PASSES.map((pass) => (
           <div
             key={pass.id}
-            className={`p-4 rounded-2xl border transition-all relative ${
+            className={`p-4 rounded-2xl bg-white border transition-all relative shadow-xs ${
               pass.popular
-                ? 'border-[#8BCB3D] bg-lime-50/20 shadow-xs ring-1 ring-[#8BCB3D]/30'
-                : 'border-slate-200 bg-white shadow-2xs'
+                ? 'border-[#8BCB3D] ring-2 ring-[#8BCB3D]/20'
+                : 'border-slate-200/80'
             }`}
           >
             {pass.popular && (
@@ -229,27 +207,38 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
 
             <div className="flex items-center justify-between gap-2">
               <div>
-                <h4 className="text-base font-black text-[#17202A]">{pass.name}</h4>
-                <span className="text-[11px] text-slate-500 font-medium">{pass.period} validity</span>
+                <h4 className="text-sm sm:text-base font-black text-[#17202A]">{pass.name}</h4>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs font-semibold text-slate-500">{pass.period}</span>
+                  {pass.id === 'weekly' && (
+                    <span className="text-[10px] font-black text-[#8BCB3D] bg-lime-50 px-1.5 py-0.5 rounded-md border border-lime-200">
+                      +30 Coins
+                    </span>
+                  )}
+                  {pass.id === 'monthly' && (
+                    <span className="text-[10px] font-black text-[#8BCB3D] bg-lime-50 px-1.5 py-0.5 rounded-md border border-lime-200">
+                      +100 Coins
+                    </span>
+                  )}
+                </div>
               </div>
+
               <div className="text-right">
-                <span className="text-lg font-black text-[#1688C9]">{pass.priceETB} ETB</span>
+                <span className="text-lg sm:text-xl font-black text-[#1688C9]">{pass.priceETB} ETB</span>
               </div>
             </div>
 
-            <ul className="mt-3 space-y-1 text-xs text-slate-600">
-              {pass.features.map((f, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#8BCB3D] shrink-0" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
+            <p className="text-xs text-slate-500 mt-2 line-clamp-1">
+              {pass.id === 'daily' && 'Instant 24-hour access to all games and tournaments.'}
+              {pass.id === 'weekly' && 'Full 7-day all-game access + weekly tournament qualification.'}
+              {pass.id === 'monthly' && 'Full 30-day VIP access + grand prize tournament priority.'}
+            </p>
 
             <button
+              type="button"
               onClick={() => handleSubscribe(pass)}
               disabled={isProcessing}
-              className="mt-3.5 w-full py-2.5 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] text-white font-black text-xs transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+              className="mt-3 w-full py-2.5 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] active:scale-98 text-white font-black text-xs transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Zap className="w-3.5 h-3.5 fill-current" />
               <span>Activate with telebirr ({pass.priceETB} ETB)</span>
@@ -258,9 +247,10 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
         ))}
       </div>
 
+      {/* 5. Security & Settlement Trust Badge */}
       <div className="mt-6 flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold">
         <ShieldCheck className="w-3.5 h-3.5 text-[#8BCB3D]" />
-        <span>Direct telebirr SuperApp billing • Instant access with zero SMS delays</span>
+        <span>Direct telebirr SuperApp billing • Instant access</span>
       </div>
     </div>
   );
