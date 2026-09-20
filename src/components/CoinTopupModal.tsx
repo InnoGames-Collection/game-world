@@ -1,17 +1,13 @@
 /**
- * GameON Tele - Telebirr Coin Topup Modal
- * Enables instant coin purchase directly from telebirr balance inside the mini-app.
+ * GoPlay - Coin Purchase Wallet
+ * Simplified clean purchase interface for GoPlay Coins.
  */
 
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { StorageService } from '../services/storageService';
 import { 
-  Coins, 
-  Wallet, 
-  ShieldCheck, 
   X, 
-  Sparkles, 
   CheckCircle2, 
   AlertCircle 
 } from 'lucide-react';
@@ -24,10 +20,9 @@ interface CoinTopupModalProps {
 }
 
 const COIN_PACKAGES = [
-  { coins: 25, priceETB: 10, bonus: '', popular: false },
-  { coins: 60, priceETB: 20, bonus: '+10 Free', popular: true },
-  { coins: 150, priceETB: 40, bonus: '+50 Free', popular: false },
-  { coins: 400, priceETB: 80, bonus: '+150 Free', popular: false },
+  { coins: 10, priceETB: 10 },
+  { coins: 25, priceETB: 25 },
+  { coins: 50, priceETB: 50 },
 ];
 
 export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
@@ -36,7 +31,7 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
   profile,
   onProfileUpdate,
 }) => {
-  const [selectedIdx, setSelectedIdx] = useState(1);
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -50,7 +45,7 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
     setSuccessMsg(null);
 
     if (profile.telebirrBalance < selectedPack.priceETB) {
-      setErrorMsg(`Insufficient telebirr balance. Available: ${profile.telebirrBalance.toFixed(2)} ETB, Required: ${selectedPack.priceETB} ETB.`);
+      setErrorMsg(`Insufficient balance (${profile.telebirrBalance.toFixed(2)} ETB available). Required: ${selectedPack.priceETB} ETB.`);
       return;
     }
 
@@ -63,21 +58,34 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
       };
       StorageService.saveProfile(updated);
       StorageService.recordCoinTransaction({
-        id: 'CTX_TB_' + Date.now().toString(36).toUpperCase(),
+        id: 'CTX_' + Date.now().toString(36).toUpperCase(),
         type: 'TELEBIRR_PURCHASE',
         amount: selectedPack.coins,
-        description: `Purchased ${selectedPack.coins} Coins via telebirr (${selectedPack.priceETB} ETB)`,
+        description: `Purchased ${selectedPack.coins} GoPlay Coins (${selectedPack.priceETB} ETB)`,
         timestamp: new Date().toISOString(),
       });
 
+      // Synchronize with backend API if available
+      fetch('/api/payments/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: 'TELEBIRR',
+          amountETB: selectedPack.priceETB,
+          itemType: 'COIN_PACK',
+          itemTitle: `${selectedPack.coins} GoPlay Coins`,
+          coinsReward: selectedPack.coins,
+        }),
+      }).catch(() => null);
+
       onProfileUpdate(updated);
       setIsProcessing(false);
-      setSuccessMsg(`Successfully credited ${selectedPack.coins} Coins!`);
+      setSuccessMsg(`Successfully credited ${selectedPack.coins} GoPlay Coins!`);
 
       setTimeout(() => {
         setSuccessMsg(null);
         onClose();
-      }, 1200);
+      }, 1000);
     }, 400);
   };
 
@@ -88,17 +96,12 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-[#1688C9] text-white p-4.5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-amber-300">
-              <Coins className="w-6 h-6 stroke-[2.5]" />
-            </div>
-            <div>
-              <h3 className="text-base font-black tracking-tight">GameON Coin Wallet</h3>
-              <p className="text-[11px] text-blue-100 font-medium">
-                Top up coins directly using your telebirr balance
-              </p>
-            </div>
+        <div className="bg-[#1688C9] text-white p-4 sm:p-5 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-black tracking-tight">GoPlay Coins</h3>
+            <p className="text-xs text-blue-100 font-medium mt-0.5">
+              Choose a package
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -110,26 +113,6 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
         </div>
 
         <div className="p-4 sm:p-5 space-y-4">
-          {/* Current Balances Card */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200">
-              <div className="text-[10px] font-black uppercase tracking-wider text-amber-800">
-                Current Coins
-              </div>
-              <div className="text-lg font-black text-amber-950 mt-0.5">
-                🪙 {profile.coins}
-              </div>
-            </div>
-            <div className="p-3 rounded-2xl bg-blue-50 border border-blue-200">
-              <div className="text-[10px] font-black uppercase tracking-wider text-blue-800">
-                telebirr Balance
-              </div>
-              <div className="text-lg font-black text-blue-950 mt-0.5">
-                {profile.telebirrBalance.toFixed(2)} ETB
-              </div>
-            </div>
-          </div>
-
           {errorMsg && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -144,63 +127,45 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
             </div>
           )}
 
-          {/* Package Selection */}
-          <div className="space-y-2">
-            <div className="text-xs font-bold text-slate-700">Select Coin Package:</div>
-            <div className="grid grid-cols-2 gap-2.5">
-              {COIN_PACKAGES.map((pkg, idx) => {
-                const isSelected = selectedIdx === idx;
-                return (
-                  <button
-                    key={pkg.coins}
-                    type="button"
-                    onClick={() => setSelectedIdx(idx)}
-                    className={`relative p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
-                      isSelected
-                        ? 'border-[#8BCB3D] bg-lime-50/50 shadow-xs ring-2 ring-[#8BCB3D]/30'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    {pkg.popular && (
-                      <span className="absolute -top-2 right-3 px-2 py-0.5 rounded-full bg-[#8BCB3D] text-white text-[9px] font-black uppercase tracking-wider shadow-xs">
-                        Most Popular
-                      </span>
-                    )}
-                    <div className="flex items-center gap-1 text-base font-black text-[#17202A]">
-                      <span>🪙 {pkg.coins}</span>
-                      {pkg.bonus && (
-                        <span className="text-[10px] text-[#8BCB3D] font-bold">{pkg.bonus}</span>
-                      )}
-                    </div>
-                    <div className="text-xs font-bold text-slate-500 mt-1">
-                      {pkg.priceETB} ETB
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          {/* 3 Clean Selectable Packages matching Image 2 */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+            {COIN_PACKAGES.map((pkg, idx) => {
+              const isSelected = selectedIdx === idx;
+              return (
+                <button
+                  key={pkg.coins}
+                  type="button"
+                  onClick={() => setSelectedIdx(idx)}
+                  className={`relative p-3.5 sm:p-4 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                    isSelected
+                      ? 'border-[#8BCB3D] bg-lime-50/70 shadow-md ring-2 ring-[#8BCB3D] -translate-y-0.5'
+                      : 'border-slate-200 hover:border-slate-300 bg-white shadow-2xs'
+                  }`}
+                >
+                  <div className="text-2xl sm:text-3xl mb-1">🪙</div>
+                  <div className="text-xs sm:text-sm font-black text-[#17202A] tracking-tight uppercase">
+                    {pkg.priceETB} BIRR
+                  </div>
+                  <div className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5 uppercase">
+                    {pkg.coins} COINS
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Purchase Button */}
+          {/* Dynamic Purchase Action */}
           <button
             onClick={handlePurchase}
             disabled={isProcessing}
-            className="w-full py-3.5 px-4 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] text-white font-black text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99]"
+            className="w-full py-3.5 px-4 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] active:scale-[0.99] text-white font-black text-sm tracking-wide transition-all shadow-md flex items-center justify-center cursor-pointer uppercase"
           >
             {isProcessing ? (
-              <span className="inline-block animate-pulse">Charging telebirr Balance...</span>
+              <span className="inline-block animate-pulse">Processing Purchase...</span>
             ) : (
-              <>
-                <Wallet className="w-4 h-4" />
-                <span>Pay {selectedPack.priceETB} ETB via telebirr</span>
-              </>
+              <span>BUY {selectedPack.coins} COINS</span>
             )}
           </button>
-
-          <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#8BCB3D]" />
-            <span>telebirr SuperApp Instant Wallet Billing • Secure & Instant</span>
-          </div>
         </div>
       </div>
     </div>

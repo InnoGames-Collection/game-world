@@ -120,7 +120,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             id="login-main-menu-btn"
             type="button"
             onClick={onOpenMenu}
-            aria-label="Open TelePlus Menu"
+            aria-label="Open GoPlay Menu"
             className="p-1.5 rounded-xl text-[#17202A] hover:bg-slate-100 active:scale-95 transition-colors cursor-pointer"
             title="Menu"
           >

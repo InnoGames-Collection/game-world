@@ -230,7 +230,7 @@ export const SideMenu: React.FC<SideMenuProps> = ({
 
         {/* Bottom copyright / version */}
         <div className="text-center text-[10px] text-white/40 pt-2 border-t border-white/10">
-          TelePlus Solitaire • 52-Card Klondike
+          GoPlay Solitaire • 52-Card Klondike
         </div>
       </div>
     </div>

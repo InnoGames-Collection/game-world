@@ -35,9 +35,10 @@ export const FeaturedHeroCarousel: React.FC<FeaturedHeroCarouselProps> = ({
   if (!featuredGames || featuredGames.length === 0) return null;
 
   const currentGame = featuredGames[currentIndex] || featuredGames[0];
-  const isCoinGame = currentGame.accessType === 'COIN' || (!currentGame.isFree && Boolean(currentGame.requiresCoins));
-  const hasAccess = Boolean(activeEntitlements[currentGame.id]);
-  const coinCost = currentGame.coinCost || (currentGame.id === 'world-legends' ? 15 : 10);
+  const isFreeDirectGame = currentGame.id === 'candy-blast' || currentGame.id === 'world-legends';
+  const isCoinGame = !isFreeDirectGame && (currentGame.accessType === 'COIN' || (!currentGame.isFree && Boolean(currentGame.requiresCoins)));
+  const hasAccess = isFreeDirectGame || Boolean(activeEntitlements[currentGame.id]);
+  const coinCost = isFreeDirectGame ? 0 : (currentGame.coinCost || 10);
 
   const prevSlide = () => {
     setCurrentIndex((prev) => (prev === 0 ? featuredGames.length - 1 : prev - 1));

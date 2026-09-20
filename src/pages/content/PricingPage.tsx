@@ -112,17 +112,16 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
             {[
-              { coins: 25, price: '10 ETB', label: 'Starter' },
-              { coins: 60, price: '20 ETB', label: '+10 Bonus Coins', popular: true },
-              { coins: 150, price: '40 ETB', label: '+50 Bonus Coins' },
-              { coins: 400, price: '80 ETB', label: '+150 Bonus Coins' },
+              { coins: 10, price: '10 ETB', label: 'Starter' },
+              { coins: 25, price: '25 ETB', label: 'Popular', popular: true },
+              { coins: 50, price: '50 ETB', label: 'Best Value' },
             ].map((item) => (
               <div
                 key={item.coins}
                 className={`p-3.5 rounded-2xl border text-center transition-all ${
-                  item.popular ? 'bg-amber-50/50 border-amber-300' : 'bg-white border-slate-200'
+                  item.popular ? 'bg-amber-50/50 border-amber-300 ring-1 ring-amber-300' : 'bg-white border-slate-200'
                 }`}
               >
                 <div className="text-base font-black text-[#17202A]">🪙 {item.coins} Coins</div>
@@ -142,7 +141,7 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             </h3>
           </div>
           <p className="text-xs text-amber-900 leading-relaxed">
-            Every verified telebirr user receives <strong>50 Free Coins</strong> automatically on their first visit to explore any coin-based game in GameON Tele.
+            Every verified telebirr user receives <strong>50 Free Coins</strong> automatically on their first visit to explore any coin-based game in GoPlay.
           </p>
         </section>
 

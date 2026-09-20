@@ -51,6 +51,13 @@ export const GameAccessModal: React.FC<GameAccessModalProps> = ({
 
   if (!isOpen || !game) return null;
 
+  // Bypass modal entirely for Candy Blast, Word Legend, and all Free games
+  if (game.gameId === 'candy-blast' || game.gameId === 'world-legends' || game.isFree || game.accessType === 'FREE' || !game.requiresCoins) {
+    onAuthorizedPlay?.(game);
+    onClose();
+    return null;
+  }
+
   const costCoins = game.coinCost || 10;
   const hasEnoughCoins = profile.coins >= costCoins;
 

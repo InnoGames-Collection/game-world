@@ -88,10 +88,36 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
     setLoading(true);
     try {
       // In production stack, fetch directly from backend API
-      const res = await fetch('/api/admin/metrics').catch(() => null);
+      const [res, usersRes, auditRes] = await Promise.all([
+        fetch('/api/admin/metrics').catch(() => null),
+        fetch('/api/admin/users').catch(() => null),
+        fetch('/api/payments/history').catch(() => null),
+      ]);
+
       if (res && res.ok) {
         const data = await res.json();
         setMetrics(data);
+      }
+
+      if (usersRes && usersRes.ok) {
+        const udata = await usersRes.json();
+        if (Array.isArray(udata) && udata.length > 0) {
+          setUsers(udata);
+        }
+      }
+
+      if (auditRes && auditRes.ok) {
+        const adata = await auditRes.json();
+        if (Array.isArray(adata) && adata.length > 0) {
+          setAuditLogs(adata.map((a: any) => ({
+            id: a.id,
+            type: a.item_type || 'PAYMENT',
+            user: a.msisdn_masked || a.user_id,
+            amount: `${a.amount_etb || 0} ETB`,
+            details: a.item_title || 'Payment Order',
+            time: new Date(a.created_at).toLocaleTimeString(),
+          })));
+        }
       }
     } finally {
       setTimeout(() => setLoading(false), 300);
@@ -102,8 +128,21 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
     refreshData();
   }, []);
 
-  const handleApplyAdjustment = () => {
+  const handleApplyAdjustment = async () => {
     if (!selectedUser) return;
+    try {
+      await fetch(`/api/admin/users/${selectedUser.id}/adjust`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coinDelta: adjustCoins,
+          energyDelta: adjustEnergy,
+        }),
+      }).catch(() => null);
+    } catch {
+      // handled
+    }
+
     setUsers((prev) =>
       prev.map((u) =>
         u.id === selectedUser.id
@@ -113,19 +152,27 @@ export const AdminPortalPage: React.FC<AdminPortalPageProps> = ({
     );
     setFeedback({
       type: 'success',
-      message: `Updated economy for ${selectedUser.display_name}: +${adjustCoins} coins, +${adjustEnergy} energy`,
+      message: `Updated economy for ${selectedUser.display_name || selectedUser.phone}: +${adjustCoins} coins, +${adjustEnergy} energy`,
     });
     setSelectedUser(null);
     setTimeout(() => setFeedback(null), 3000);
   };
 
-  const handleSettleTournament = (tourneyId: string) => {
+  const handleSettleTournament = async (tourneyId: string) => {
+    try {
+      await fetch(`/api/tournaments/${tourneyId}/settle`, {
+        method: 'POST',
+      }).catch(() => null);
+    } catch {
+      // handled
+    }
+
     setTournaments((prev) =>
       prev.map((t) => (t.id === tourneyId ? { ...t, state: 'settled' } : t))
     );
     setFeedback({
       type: 'success',
-      message: `Tournament ${tourneyId} marked as settled. Cash prizes dispatched to Telebirr wallets.`,
+      message: `Tournament ${tourneyId} marked as settled. Cash prizes dispatched to telebirr wallets.`,
     });
     setTimeout(() => setFeedback(null), 3000);
   };

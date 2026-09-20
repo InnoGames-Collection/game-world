@@ -34,9 +34,10 @@ export const GameDetailsModal: React.FC<GameDetailsModalProps> = ({
 }) => {
   if (!isOpen || !game) return null;
 
-  const isCoinGame = game.accessType === 'COIN' || (!game.isFree && Boolean(game.requiresCoins));
-  const isSubscriptionGame = game.accessType === 'SUBSCRIPTION';
-  const coinCost = game.coinCost || (game.id === 'world-legends' ? 15 : 10);
+  const isFreeDirectGame = game.id === 'candy-blast' || game.id === 'world-legends';
+  const isCoinGame = !isFreeDirectGame && (game.accessType === 'COIN' || (!game.isFree && Boolean(game.requiresCoins)));
+  const isSubscriptionGame = !isFreeDirectGame && game.accessType === 'SUBSCRIPTION';
+  const coinCost = isFreeDirectGame ? 0 : (game.coinCost || 10);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 select-none">

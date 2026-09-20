@@ -1,5 +1,5 @@
 /**
- * Terms & Conditions Page Component for TelePlus
+ * Terms & Conditions Page Component for GoPlay
  * 
  * Verbatim content from Document Section 14:
  * Complete Sections 14.1 through 14.32 with structured numbering and readable layout.
@@ -42,7 +42,7 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onBack, showHeader = true 
       {/* 2. Top Summary Card */}
       <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-700 leading-relaxed mb-4">
         <p className="font-bold text-[#17202A]">
-          Official TelePlus EthioTelecom Gaming Terms & Conditions (Section 14)
+          Official GoPlay EthioTelecom Gaming Terms & Conditions (Section 14)
         </p>
         <p className="text-[11px] text-slate-500 mt-1">
           Governing tournament participation, score caps, fair play, subscriber billing, and prize distribution.

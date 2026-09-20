@@ -56,7 +56,7 @@ export const FruitNinjaMainMenu: React.FC<FruitNinjaMainMenuProps> = ({
           id="fruit-ninja-menu-exit-btn"
           onClick={handleExitClick}
           className="h-10 px-3 rounded-xl bg-stone-900/80 hover:bg-stone-800 active:scale-95 text-stone-300 hover:text-white text-xs font-bold flex items-center gap-1.5 border border-amber-500/20 shadow-md transition-all cursor-pointer"
-          title="Exit to TelePlus Portal"
+          title="Exit to GoPlay Portal"
           aria-label="Exit Game"
         >
           <ArrowLeft className="w-4 h-4 text-amber-400 stroke-[2.5]" />

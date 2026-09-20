@@ -935,7 +935,7 @@ export const MemoryMatchGame: React.FC<MemoryMatchGameProps> = ({
                   COGNITIVE TITAN!
                 </h3>
                 <p className="text-xs text-slate-200 mt-1 leading-relaxed">
-                  You have conquered all 40 competitive levels of the TelePlus Memory Match Championship!
+                  You have conquered all 40 competitive levels of the GoPlay Memory Match Championship!
                 </p>
               </div>
 

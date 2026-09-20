@@ -1,7 +1,7 @@
 /**
- * TelePlus Official Content Source of Truth
+ * GoPlay Official Content Source of Truth
  * 
- * Sourced directly from the official TelePlus content specification document.
+ * Sourced directly from the official GoPlay content specification document.
  * This canonical file supplies text and structured data across the entire application.
  */
 
@@ -22,7 +22,7 @@ export interface GameContentDetails {
   importantRules?: string[];
 }
 
-export const TELEPLUS_GAMES_CONTENT: GameContentDetails[] = [
+export const GOPLAY_GAMES_CONTENT: GameContentDetails[] = [
   // 1.1 CANDY BLAST
   {
     id: 'candy-blast',
@@ -347,18 +347,18 @@ export interface FAQItem {
   category?: string;
 }
 
-export const TELEPLUS_FAQ_ITEMS: FAQItem[] = [
+export const GOPLAY_FAQ_ITEMS: FAQItem[] = [
   {
     id: 'faq-1',
-    question: 'What is TelePlus?',
+    question: 'What is GoPlay?',
     answer:
-      'TelePlus is a mobile gaming entertainment service providing multiple skill-based games, competitions, leaderboards, coins, and prize opportunities.',
+      'GoPlay is a mobile gaming entertainment service providing multiple skill-based games, competitions, leaderboards, coins, and prize opportunities.',
   },
   {
     id: 'faq-2',
     question: 'What games are available?',
     answer:
-      'TelePlus currently offers:\n\nWeekly:\n• Candy Blast\n• Color Rush\n• World Legends\n\nMonthly:\n• Pop Piano\n• Hill Climb\n• Pop Balloon',
+      'GoPlay currently offers:\n\nWeekly:\n• Candy Blast\n• Color Rush\n• World Legends\n\nMonthly:\n• Pop Piano\n• Hill Climb\n• Pop Balloon',
   },
   {
     id: 'faq-3',
@@ -368,7 +368,7 @@ export const TELEPLUS_FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'faq-4',
-    question: 'Are TelePlus games skill-based?',
+    question: 'Are GoPlay games skill-based?',
     answer:
       'Yes. Games are designed around skills such as reaction speed, timing, accuracy, precision, decision-making, knowledge, and consistency.',
   },
@@ -380,7 +380,7 @@ export const TELEPLUS_FAQ_ITEMS: FAQItem[] = [
   },
   {
     id: 'faq-6',
-    question: 'How much does TelePlus cost?',
+    question: 'How much does GoPlay cost?',
     answer:
       'Daily: 5 ETB/day\nWeekly: 15 ETB/week\nMonthly: 35 ETB/month',
   },
@@ -466,7 +466,7 @@ export const TELEPLUS_FAQ_ITEMS: FAQItem[] = [
     id: 'faq-20',
     question: 'Are there instant prizes?',
     answer:
-      'Yes. TelePlus may provide instant prizes separately from leaderboard prizes according to applicable game or promotion rules.',
+      'Yes. GoPlay may provide instant prizes separately from leaderboard prizes according to applicable game or promotion rules.',
   },
   {
     id: 'faq-21',
@@ -478,7 +478,7 @@ export const TELEPLUS_FAQ_ITEMS: FAQItem[] = [
     id: 'faq-22',
     question: 'What if I believe my score is incorrect?',
     answer:
-      'Contact TelePlus support and provide the relevant account/mobile number, game, approximate gameplay time, and details of the issue.',
+      'Contact GoPlay support and provide the relevant account/mobile number, game, approximate gameplay time, and details of the issue.',
   },
   {
     id: 'faq-23',
@@ -490,19 +490,19 @@ export const TELEPLUS_FAQ_ITEMS: FAQItem[] = [
     id: 'faq-24',
     question: 'What if I was charged but cannot access the service?',
     answer:
-      'Contact TelePlus support with your mobile number, subscription package, approximate time of charging, and relevant transaction information.',
+      'Contact GoPlay support with your mobile number, subscription package, approximate time of charging, and relevant transaction information.',
   },
   {
     id: 'faq-25',
-    question: 'Does TelePlus require mobile data?',
+    question: 'Does GoPlay require mobile data?',
     answer:
       'Gameplay may require an active internet/mobile data connection depending on the service implementation.',
   },
   {
     id: 'faq-26',
-    question: 'Can TelePlus games or rules change?',
+    question: 'Can GoPlay games or rules change?',
     answer:
-      'TelePlus may update games, gameplay, features, competitions, scoring, prizes, or other service elements when necessary, subject to applicable terms and notices.',
+      'GoPlay may update games, gameplay, features, competitions, scoring, prizes, or other service elements when necessary, subject to applicable terms and notices.',
   },
   {
     id: 'faq-27',
@@ -523,7 +523,7 @@ export interface SupportTopic {
   note?: string;
 }
 
-export const TELEPLUS_SUPPORT_TOPICS: SupportTopic[] = [
+export const GOPLAY_SUPPORT_TOPICS: SupportTopic[] = [
   {
     id: 'sub-support',
     title: 'Subscription Support',
@@ -631,7 +631,7 @@ export const TELEPLUS_SUPPORT_TOPICS: SupportTopic[] = [
       'Users should protect their mobile account and should not share sensitive authentication information with other people.',
       'Do not attempt to manipulate game scores, access other users’ accounts, or interfere with the service.',
     ],
-    note: 'Important: A TelePlus support phone number/contact address should only be added when the official support contact is provided. Do not invent one.',
+    note: 'Important: A GoPlay support phone number/contact address should only be added when the official support contact is provided. Do not invent one.',
   },
 ];
 
@@ -648,7 +648,7 @@ export interface SubscriptionPackage {
   recipient: string;
 }
 
-export const TELEPLUS_SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
+export const GOPLAY_SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
   {
     package: 'Daily',
     price: '5 ETB/day',
@@ -678,10 +678,10 @@ export const TELEPLUS_SUBSCRIPTION_PACKAGES: SubscriptionPackage[] = [
   },
 ];
 
-export const TELEPLUS_SUBSCRIPTION_INFO = {
-  ussdInfo: 'USSD subscription will also be available through the applicable TelePlus service channel.',
+export const GOPLAY_SUBSCRIPTION_INFO = {
+  ussdInfo: 'USSD subscription will also be available through the applicable GoPlay service channel.',
   afterSubscription:
-    'After successful subscription, the user can access the applicable TelePlus service and games according to the subscribed package and service rules.\n\nSubscription charges and renewal operate according to the selected package.',
+    'After successful subscription, the user can access the applicable GoPlay service and games according to the subscribed package and service rules.\n\nSubscription charges and renewal operate according to the selected package.',
   renewal:
     'Subscription packages may renew according to the applicable package terms. Users should ensure that sufficient balance is available where required for renewal.',
   unsubscription:
@@ -691,18 +691,18 @@ export const TELEPLUS_SUBSCRIPTION_INFO = {
 // =========================================================================
 // 5. PRICING CONTENT (Section 11 in Document)
 // =========================================================================
-export const TELEPLUS_COIN_PRICING = [
+export const GOPLAY_COIN_PRICING = [
   { coins: 5, priceETB: 3 },
   { coins: 10, priceETB: 5 },
   { coins: 25, priceETB: 10 },
 ];
 
-export const TELEPLUS_WELCOME_BONUS = {
+export const GOPLAY_WELCOME_BONUS = {
   coins: 25,
   description: '25 free coins for first-time registration, once per user.',
 };
 
-export const TELEPLUS_TOP10_PRIZES = [
+export const GOPLAY_TOP10_PRIZES = [
   { rank: '1st', prize: '50,000 ETB' },
   { rank: '2nd', prize: '40,000 ETB' },
   { rank: '3rd', prize: '35,000 ETB' },
@@ -715,7 +715,7 @@ export const TELEPLUS_TOP10_PRIZES = [
   { rank: '10th', prize: '3,000 ETB' },
 ];
 
-export const TELEPLUS_TOTAL_PRIZE_VALUE = '233,000 ETB per applicable competition period.';
+export const GOPLAY_TOTAL_PRIZE_VALUE = '233,000 ETB per applicable competition period.';
 
 // =========================================================================
 // 6. TERMS & CONDITIONS CONTENT (Section 14 in Document)
@@ -728,20 +728,20 @@ export interface TermSection {
   table?: { col1: string; col2: string }[];
 }
 
-export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
+export const GOPLAY_TERMS_SECTIONS: TermSection[] = [
   {
     number: '14.1',
     title: 'Introduction',
     paragraphs: [
-      'These Terms & Conditions govern the use of the TelePlus gaming service.',
-      'By accessing or using TelePlus, the user agrees to comply with these Terms & Conditions and the applicable service rules.',
+      'These Terms & Conditions govern the use of the GoPlay gaming service.',
+      'By accessing or using GoPlay, the user agrees to comply with these Terms & Conditions and the applicable service rules.',
     ],
   },
   {
     number: '14.2',
     title: 'Service',
     paragraphs: [
-      'TelePlus provides mobile gaming entertainment, skill-based games, competitions, leaderboards, coins, and prize opportunities.',
+      'GoPlay provides mobile gaming entertainment, skill-based games, competitions, leaderboards, coins, and prize opportunities.',
       'The available games and features may be updated from time to time.',
     ],
   },
@@ -749,7 +749,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.3',
     title: 'Eligibility',
     paragraphs: [
-      'Users must meet the eligibility requirements applicable to the TelePlus service.',
+      'Users must meet the eligibility requirements applicable to the GoPlay service.',
       'Additional eligibility conditions may apply to particular games, competitions, promotions, or prizes.',
     ],
   },
@@ -765,7 +765,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.5',
     title: 'Subscription',
     paragraphs: [
-      'TelePlus provides:',
+      'GoPlay provides:',
     ],
     bulletPoints: [
       'Daily — 5 ETB/day',
@@ -800,7 +800,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.8',
     title: 'Games',
     paragraphs: [
-      'TelePlus currently provides:',
+      'GoPlay currently provides:',
     ],
     bulletPoints: [
       'Candy Blast',
@@ -816,7 +816,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.9',
     title: 'Skill-Based Gameplay',
     paragraphs: [
-      'TelePlus games are designed around player skill.',
+      'GoPlay games are designed around player skill.',
       'Performance may depend on factors such as:',
     ],
     bulletPoints: [
@@ -911,7 +911,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.17',
     title: 'Instant Prizes',
     paragraphs: [
-      'TelePlus may provide instant prizes separately from leaderboard prizes.',
+      'GoPlay may provide instant prizes separately from leaderboard prizes.',
       'Instant prizes are governed by the applicable game or promotional rules.',
     ],
   },
@@ -919,7 +919,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.18',
     title: 'Prize Verification',
     paragraphs: [
-      'Before prize delivery, TelePlus may verify: User participation, Mobile number, Score, Ranking, Identity, Eligibility, and Compliance with applicable game rules.',
+      'Before prize delivery, GoPlay may verify: User participation, Mobile number, Score, Ranking, Identity, Eligibility, and Compliance with applicable game rules.',
       'A prize may be withheld until required verification is successfully completed.',
     ],
   },
@@ -954,21 +954,21 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.21',
     title: 'Disqualification',
     paragraphs: [
-      'TelePlus may invalidate scores, remove leaderboard entries, withhold prizes, suspend participation, or take other appropriate action where there is evidence of rule violations or unfair gameplay.',
+      'GoPlay may invalidate scores, remove leaderboard entries, withhold prizes, suspend participation, or take other appropriate action where there is evidence of rule violations or unfair gameplay.',
     ],
   },
   {
     number: '14.22',
     title: 'Service Availability',
     paragraphs: [
-      'TelePlus aims to provide continuous service but availability may be affected by maintenance, technical issues, network conditions, system upgrades, third-party dependencies, or other circumstances outside reasonable control.',
+      'GoPlay aims to provide continuous service but availability may be affected by maintenance, technical issues, network conditions, system upgrades, third-party dependencies, or other circumstances outside reasonable control.',
     ],
   },
   {
     number: '14.23',
     title: 'Updates',
     paragraphs: [
-      'TelePlus may modify games, game mechanics, scoring, subscription packages, features, competitions, prize structures, coin packages, or service functionality.',
+      'GoPlay may modify games, game mechanics, scoring, subscription packages, features, competitions, prize structures, coin packages, or service functionality.',
       'Applicable updates may be communicated through appropriate service channels.',
     ],
   },
@@ -977,7 +977,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     title: 'Data and Privacy',
     paragraphs: [
       'User information may be processed as necessary to provide the service, manage subscriptions, operate games, maintain leaderboards, prevent abuse, provide support, and perform prize verification.',
-      'Personal information should be handled in accordance with applicable privacy requirements and TelePlus privacy practices.',
+      'Personal information should be handled in accordance with applicable privacy requirements and GoPlay privacy practices.',
     ],
   },
   {
@@ -992,7 +992,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.26',
     title: 'Intellectual Property',
     paragraphs: [
-      'TelePlus service content, software, graphics, game designs, interfaces, branding, and other protected materials remain the property of their respective rights holders.',
+      'GoPlay service content, software, graphics, game designs, interfaces, branding, and other protected materials remain the property of their respective rights holders.',
       'Users may not reproduce, modify, distribute, reverse engineer, or commercially exploit protected service content without authorization.',
     ],
   },
@@ -1000,7 +1000,7 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.27',
     title: 'Liability',
     paragraphs: [
-      'TelePlus is not responsible for circumstances outside its reasonable control, including certain network, connectivity, device, technical, or third-party service issues.',
+      'GoPlay is not responsible for circumstances outside its reasonable control, including certain network, connectivity, device, technical, or third-party service issues.',
       'Nothing in these Terms should exclude rights or obligations that cannot legally be excluded.',
     ],
   },
@@ -1016,14 +1016,14 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.29',
     title: 'Suspension or Termination',
     paragraphs: [
-      'TelePlus may suspend or terminate access where necessary, including for terms violations, fair-play violations, abuse, security concerns, technical reasons, or service discontinuation.',
+      'GoPlay may suspend or terminate access where necessary, including for terms violations, fair-play violations, abuse, security concerns, technical reasons, or service discontinuation.',
     ],
   },
   {
     number: '14.30',
     title: 'Complaints and Disputes',
     paragraphs: [
-      'Users should first contact the applicable TelePlus support channel to resolve service-related complaints.',
+      'Users should first contact the applicable GoPlay support channel to resolve service-related complaints.',
       'Applicable laws and dispute-resolution requirements will apply.',
     ],
   },
@@ -1039,18 +1039,18 @@ export const TELEPLUS_TERMS_SECTIONS: TermSection[] = [
     number: '14.32',
     title: 'Acceptance',
     paragraphs: [
-      'By registering for, subscribing to, or using TelePlus, the user confirms that they have read and accepted the applicable Terms & Conditions.',
+      'By registering for, subscribing to, or using GoPlay, the user confirms that they have read and accepted the applicable Terms & Conditions.',
     ],
   },
 ];
 
 // =========================================================================
-// 7. PRIVACY POLICY CONTENT (Section 14.24 & TelePlus Privacy Practices)
+// 7. PRIVACY POLICY CONTENT (Section 14.24 & GoPlay Privacy Practices)
 // =========================================================================
-export const TELEPLUS_PRIVACY_POLICY = {
-  title: 'TelePlus Privacy Policy',
+export const GOPLAY_PRIVACY_POLICY = {
+  title: 'GoPlay Privacy Policy',
   summary:
-    'TelePlus is committed to protecting user privacy and handling personal information responsibly, transparently, and securely in accordance with applicable laws and telecommunications standards.',
+    'GoPlay is committed to protecting user privacy and handling personal information responsibly, transparently, and securely in accordance with applicable laws and telecommunications standards.',
   sections: [
     {
       title: 'Data Collection & Processing (Section 14.24)',
@@ -1072,7 +1072,7 @@ export const TELEPLUS_PRIVACY_POLICY = {
     {
       title: 'Zero Unnecessary Device Permissions',
       paragraphs: [
-        'TelePlus operates within your browser or mobile web container with zero invasive device permissions. The service does not request access to device contacts, microphone, camera, or external file storage.',
+        'GoPlay operates within your browser or mobile web container with zero invasive device permissions. The service does not request access to device contacts, microphone, camera, or external file storage.',
       ],
     },
     {
@@ -1084,8 +1084,20 @@ export const TELEPLUS_PRIVACY_POLICY = {
     {
       title: 'Regulatory Compliance & Legal Review Status',
       paragraphs: [
-        'This Privacy Policy reflects the current data processing practices of the TelePlus gaming service. Official additional regulatory compliance provisions will be published upon conclusion of scheduled regulatory reviews.',
+        'This Privacy Policy reflects the current data processing practices of the GoPlay gaming service. Official additional regulatory compliance provisions will be published upon conclusion of scheduled regulatory reviews.',
       ],
     },
   ],
 };
+
+// Backward-compatible exports
+export const TELEPLUS_GAMES_CONTENT = GOPLAY_GAMES_CONTENT;
+export const TELEPLUS_FAQ_ITEMS = GOPLAY_FAQ_ITEMS;
+export const TELEPLUS_SUPPORT_TOPICS = GOPLAY_SUPPORT_TOPICS;
+export const TELEPLUS_SUBSCRIPTION_PACKAGES = GOPLAY_SUBSCRIPTION_PACKAGES;
+export const TELEPLUS_COIN_PRICING = GOPLAY_COIN_PRICING;
+export const TELEPLUS_WELCOME_BONUS = GOPLAY_WELCOME_BONUS;
+export const TELEPLUS_TOP10_PRIZES = GOPLAY_TOP10_PRIZES;
+export const TELEPLUS_TERMS_SECTIONS = GOPLAY_TERMS_SECTIONS;
+export const TELEPLUS_PRIVACY_POLICY = GOPLAY_PRIVACY_POLICY;
+

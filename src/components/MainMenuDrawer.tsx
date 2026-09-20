@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Sparkles
 } from 'lucide-react';
+import { GoPlayLogo } from './GoPlayLogo';
 
 export type MainMenuSection = 
   | 'games'
@@ -113,13 +114,13 @@ export const MainMenuDrawer: React.FC<MainMenuDrawerProps> = ({
       >
         {/* Drawer Header */}
         <div className="p-4 bg-[#1688C9] text-white flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center font-black text-xs">
-              TP
+          <div className="flex items-center gap-3">
+            <div className="bg-white px-2 py-1 rounded-xl shadow-xs flex items-center justify-center">
+              <GoPlayLogo size="xs" />
             </div>
             <div>
-              <h2 className="text-sm font-black tracking-tight uppercase">TelePlus Menu</h2>
-              <span className="text-[10px] text-blue-100 font-medium">EthioTelecom Official Portal</span>
+              <h2 className="text-sm font-black tracking-tight">GoPlay Menu</h2>
+              <span className="text-[10px] text-blue-100 font-medium">telebirr Game Center</span>
             </div>
           </div>
 

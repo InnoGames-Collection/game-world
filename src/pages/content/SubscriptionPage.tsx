@@ -51,7 +51,7 @@ const ALL_ACCESS_PASSES = [
     features: [
       'Unlimited 7-day plays on all 20+ games',
       'Weekly national championship qualification',
-      'Includes 30 bonus GameON Coins',
+      'Includes 30 bonus GoPlay Coins',
       'Save 43% vs Daily passes',
     ],
   },
@@ -62,7 +62,7 @@ const ALL_ACCESS_PASSES = [
     period: '30 Days',
     features: [
       '30 days unlimited access to the entire game catalog',
-      '100 bonus GameON Coins credited to wallet',
+      '100 bonus GoPlay Coins credited to wallet',
       'Grand tournament leaderboard priority',
       'Best value: save 66%',
     ],

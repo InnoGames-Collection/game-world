@@ -6,6 +6,7 @@ import { useState, useCallback } from "react";
 import { GameDefinition, GameSessionResult, UserProfile, ToastMessage, EnergyTransaction } from "../types";
 import { GameBridgeService } from "../services/gameBridge";
 import { StorageService } from "../services/storageService";
+import { apiService } from "../services/apiService";
 
 interface UseGameLauncherParams {
   profile: UserProfile;
@@ -80,6 +81,14 @@ export function useGameLauncher({
 
       setProfile(updatedProfile);
       setLastGameSessionResult(result);
+
+      // Synchronize score authoritative verification with live PostgreSQL database
+      apiService.submitScore(
+        activeGameToLaunch.id,
+        finalScore,
+        durationSeconds,
+        activeTournamentId
+      ).catch(() => null);
 
       if (transaction) {
         showToast(

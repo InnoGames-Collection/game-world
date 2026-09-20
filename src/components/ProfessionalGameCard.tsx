@@ -39,9 +39,10 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
   hasActiveAccess = false,
   className = '',
 }) => {
-  const isCoinGame = game.accessType === 'COIN' || (!game.isFree && Boolean(game.requiresCoins));
-  const isSubscriptionGame = game.accessType === 'SUBSCRIPTION';
-  const coinCost = game.coinCost || (game.id === 'world-legends' ? 15 : 10);
+  const isFreeDirectGame = game.id === 'candy-blast' || game.id === 'world-legends';
+  const isCoinGame = !isFreeDirectGame && (game.accessType === 'COIN' || (!game.isFree && Boolean(game.requiresCoins)));
+  const isSubscriptionGame = !isFreeDirectGame && game.accessType === 'SUBSCRIPTION';
+  const coinCost = isFreeDirectGame ? 0 : (game.coinCost || 10);
 
   const handleCardClick = () => {
     if (onClickDetails) {

@@ -88,7 +88,7 @@ export const GamesContentPage: React.FC<GamesContentPageProps> = ({
             )}
             <div className="flex items-center gap-2">
               <Gamepad2 className="w-5 h-5 text-[#8BCB3D] shrink-0" />
-              <h1 className="text-base font-black tracking-tight">Teleplus Games</h1>
+              <h1 className="text-base font-black tracking-tight">GoPlay Games</h1>
             </div>
           </div>
         </div>

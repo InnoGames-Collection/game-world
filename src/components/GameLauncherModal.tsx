@@ -63,6 +63,21 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
   onPlayAgain,
   isAudioEnabled = true,
 }) => {
+  // Candy Blast handles its own complete standalone mobile game hub and HUD
+  if (game.id === 'candy-blast') {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col justify-center items-center p-2 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+        <CandyBlastGame
+          game={game}
+          profile={profile}
+          onGameOver={onGameOver}
+          onExit={onClose}
+          isAudioEnabled={isAudioEnabled}
+        />
+      </div>
+    );
+  }
+
   // World Legends handles its own compact in-game HUD and standalone experience
   if (game.id === 'world-legends') {
     return (
@@ -416,6 +431,21 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
     );
   }
 
+  // Hill Climb features 40 progressive levels, pre-game menu, level select, leaderboard, settings
+  if (game.id === 'hill-rider') {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#07131F] flex flex-col justify-start items-center overflow-hidden animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif] touch-none overscroll-none select-none">
+        <HillRiderGame
+          game={game}
+          profile={profile}
+          onGameOver={onGameOver}
+          onExit={onClose}
+          isAudioEnabled={isAudioEnabled}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col justify-between overflow-y-auto animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif]">
       
@@ -579,7 +609,7 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
 
       {/* Footer Branding */}
       <div className="px-4 py-2 bg-[#1688C9] text-center text-xs text-white/90 border-t border-blue-600">
-        EthioTelecom TelePlus • Official Mobile Gaming Portal
+        GoPlay • Official Mobile Gaming Portal
       </div>
     </div>
   );

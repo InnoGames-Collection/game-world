@@ -39,7 +39,7 @@ export const MemoryMainMenu: React.FC<MemoryMainMenuProps> = ({
   return (
     <div className="w-full h-full flex flex-col justify-between items-center text-white px-3 py-4 sm:p-6 overflow-y-auto overscroll-contain select-none font-['Plus_Jakarta_Sans',sans-serif] max-w-md mx-auto">
       
-      {/* Top Bar: Return to TelePlus portal */}
+      {/* Top Bar: Return to GoPlay portal */}
       <div className="w-full flex items-center justify-between shrink-0 mb-3">
         <button
           onClick={onExit}
