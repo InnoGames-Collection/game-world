@@ -14,7 +14,7 @@ echo "Connecting to GCP VM ${TARGET_INSTANCE} (${TARGET_IP})..."
 
 if command -v gcloud &>/dev/null; then
   echo "Executing deployment via gcloud OS Login..."
-  gcloud compute ssh "${TARGET_USER}@${TARGET_INSTANCE}" --zone="${TARGET_ZONE}" --command="cd ${REMOTE_PATH} && ./scripts/server-deploy.sh"
+  gcloud compute ssh "${TARGET_USER}@${TARGET_INSTANCE}" --zone="${TARGET_ZONE}" --command="sudo -u ${TARGET_USER} -H bash -c 'cd ${REMOTE_PATH} && ./scripts/server-deploy.sh'"
 else
   echo "gcloud CLI not found, falling back to direct SSH..."
   ssh -o StrictHostKeyChecking=no "${TARGET_USER}@${TARGET_IP}" "cd ${REMOTE_PATH} && ./scripts/server-deploy.sh"
