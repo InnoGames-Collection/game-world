@@ -64,14 +64,14 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
   };
 
   // Status badge on cover
-  let statusText = 'FREE';
-  let statusEmoji = '🎮';
+  let statusText: string | null = null;
+  let statusEmoji = '';
   if (tournamentBadge) {
     statusText = tournamentBadge;
     statusEmoji = '🏆';
   } else if (hasActiveAccess) {
-    statusText = 'UNLOCKED';
-    statusEmoji = '⚡';
+    // Remove "UNLOCKED" tag per user requirement
+    statusText = null;
   } else if (isCoinGame) {
     statusText = `${coinCost} COINS`;
     statusEmoji = '🪙';
@@ -102,11 +102,13 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
           className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105" 
         />
 
-        {/* Top-Left Status Pill (e.g. 🎮 FREE) */}
-        <span className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-xs text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-sm">
-          <span className="text-[10px]">{statusEmoji}</span>
-          <span>{statusText}</span>
-        </span>
+        {/* Top-Left Status Pill (Only if present, e.g. 🏆 TOURNAMENT) */}
+        {statusText && (
+          <span className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-xs text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-sm">
+            {statusEmoji && <span className="text-[10px]">{statusEmoji}</span>}
+            <span>{statusText}</span>
+          </span>
+        )}
 
         {/* Top-Right Info "?" Button (How-to-play) */}
         <button

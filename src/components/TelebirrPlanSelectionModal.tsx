@@ -7,7 +7,6 @@
  */
 
 import React, { useState } from 'react';
-import { GoPlayLogo } from './GoPlayLogo';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 
 export interface GamePlan {
@@ -23,7 +22,7 @@ export interface GamePlan {
 export const GAME_PLANS: GamePlan[] = [
   {
     id: 'daily',
-    name: 'Daily Access',
+    name: 'Daily',
     durationLabel: '1 day',
     durationHours: 24,
     priceETB: 10,
@@ -31,16 +30,15 @@ export const GAME_PLANS: GamePlan[] = [
   },
   {
     id: 'weekly',
-    name: 'Weekly Access',
+    name: 'Weekly',
     durationLabel: '7 days',
     durationHours: 168,
     priceETB: 25,
     description: '7-day unlimited access with double XP leveling.',
-    isPopular: true,
   },
   {
     id: 'monthly',
-    name: 'Monthly Access',
+    name: 'Monthly',
     durationLabel: '30 days',
     durationHours: 720,
     priceETB: 50,
@@ -103,8 +101,6 @@ export const TelebirrPlanSelectionModal: React.FC<TelebirrPlanSelectionModalProp
             </div>
           </div>
 
-          <GoPlayLogo size="xs" />
-
           <div className="text-xs font-semibold text-slate-500 flex items-center gap-1">
             <span>En</span>
             <span className="text-[10px]">▼</span>
@@ -149,11 +145,6 @@ export const TelebirrPlanSelectionModal: React.FC<TelebirrPlanSelectionModalProp
                         <span className="font-bold text-sm text-slate-900">
                           {plan.name}
                         </span>
-                        {plan.isPopular && (
-                          <span className="px-2 py-0.5 rounded-full bg-[#8BCB3D] text-white text-[9px] font-black uppercase tracking-wider">
-                            Popular
-                          </span>
-                        )}
                       </div>
                       <p className="text-xs text-slate-500 font-medium mt-0.5">
                         {plan.durationLabel}

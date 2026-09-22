@@ -172,7 +172,7 @@ export const TournamentPage: React.FC<TournamentPageProps> = ({
             <div className="text-[10px] font-bold text-slate-500 uppercase mb-1.5">
               Your Scores
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-4 gap-1 sm:gap-1.5">
               {participatingGames.map((game) => {
                 const score = currentUserScores[game.gameId] || 0;
                 const isBest = currentUserBestScore > 0 && score === currentUserBestScore;
@@ -180,24 +180,24 @@ export const TournamentPage: React.FC<TournamentPageProps> = ({
                 return (
                   <div
                     key={game.gameId}
-                    className={`p-2 rounded-xl border text-center transition-all ${
+                    className={`p-1.5 sm:p-2 rounded-xl border text-center transition-all min-w-0 ${
                       isBest
                         ? 'bg-amber-100/70 border-amber-300 shadow-xs'
                         : 'bg-white border-slate-200'
                     }`}
                   >
-                    <div className="text-[10px] font-extrabold text-slate-700 truncate">
+                    <div className="text-[9px] sm:text-[10px] font-extrabold text-slate-700 truncate" title={game.gameName}>
                       {game.gameName}
                     </div>
-                    <div className="text-xs font-black text-[#17202A] mt-0.5">
-                      {score.toLocaleString()} <span className="text-[9px] font-medium text-slate-400">pts</span>
+                    <div className="text-[11px] sm:text-xs font-black text-[#17202A] mt-0.5 leading-tight">
+                      {score.toLocaleString()} <span className="text-[8px] sm:text-[9px] font-medium text-slate-400">pts</span>
                     </div>
                     {isBest ? (
-                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-amber-500 text-white text-[8px] font-black uppercase tracking-wider">
+                      <span className="inline-block mt-0.5 px-1 py-0.2 rounded bg-amber-500 text-white text-[7px] sm:text-[8px] font-black uppercase tracking-wider">
                         ★ BEST
                       </span>
                     ) : (
-                      <span className="inline-block mt-0.5 text-[8px] font-bold text-slate-400 uppercase">
+                      <span className="inline-block mt-0.5 text-[7px] sm:text-[8px] font-bold text-slate-400 uppercase truncate max-w-full">
                         {score > 0 ? 'Recorded' : 'Not Played'}
                       </span>
                     )}
