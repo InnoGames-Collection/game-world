@@ -1,6 +1,5 @@
 import React from 'react';
 import { GameDefinition } from '../types';
-import { Play, Star } from 'lucide-react';
 import { OriginalGameArtwork } from './OriginalGameArtwork';
 
 export interface ProfessionalGameCardProps {
@@ -8,34 +7,32 @@ export interface ProfessionalGameCardProps {
   onPlay: (game: GameDefinition) => void;
   onClickDetails?: (game: GameDefinition) => void;
   layout?: 'carousel' | 'grid';
+  aspectRatio?: '4/3' | '16/9';
   hasActiveAccess?: boolean;
   className?: string;
 }
 
+function formatPlays(count?: number): string {
+  if (!count) return '—';
+  if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+  if (count >= 1000) return `${(count / 1000).toFixed(0)}k`;
+  return String(count);
+}
+
 /**
- * ProfessionalGameCard
+ * ProfessionalGameCard (InnoArcade Poster Card Format)
  * 
- * Premium Clean Two-Zone Game Card Architecture:
- * 
- * ZONE 1: Promotional Image Container (.game-card-image)
- * - Fixed 16:9 aspect ratio across all cards
- * - Un-obscured promotional artwork (NO title/rating/description/PLAY overlays)
- * - Smooth top rounded corners matching card radius
- * 
- * ZONE 2: Clean White Information Container (.game-card-info)
- * - Pure white background (#FFFFFF) with subtle border & soft elevation
- * - Dark navy game title (#111827, 17-18px, bold/extrabold)
- * - Compact gold rating pill (★ 4.90 / ★ 4.99)
- * - Green status badge (UNLOCKED / FREE in #16A34A, or COINS)
- * - Readable gray description (#64748B, 13px)
- * - Signature GoPlay green PLAY button (#8BCB3D) with white icon & text
- * - Guaranteed identical fixed height across all cards for pixel-perfect alignment
+ * Faithfully matches the exact mobile 2-column card architecture from innoarcade-deploy (https://goplay-nu.vercel.app):
+ * 1. 4:3 Cover Artwork with top-left "FREE" pill badge and top-right "?" info/rules button.
+ * 2. Card body with Game Title, Genre/Category, 4-stat grid (Rating, Players, Duration, High score).
+ * 3. Gradient "Play Now" button with signature circular white play arrow.
  */
 export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
   game,
   onPlay,
   onClickDetails,
-  layout = 'carousel',
+  layout = 'grid',
+  aspectRatio = '4/3',
   hasActiveAccess = false,
   className = '',
 }) => {
@@ -45,6 +42,11 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
   const coinCost = isFreeDirectGame ? 0 : (game.coinCost || 10);
 
   const handleCardClick = () => {
+    onPlay(game);
+  };
+
+  const handleDetailsClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onClickDetails) {
       onClickDetails(game);
     } else {
@@ -57,102 +59,113 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
     onPlay(game);
   };
 
-  // Format rating to standard 2-decimal display (e.g. 4.90, 4.99)
-  const formattedRating = Number(game.rating || 4.99).toFixed(2);
-
-  // Status configuration for the clean white information panel
+  // Status badge on cover
   let statusText = 'FREE';
-  let statusColor = 'text-[#16A34A]';
-
+  let statusEmoji = '🎮';
   if (hasActiveAccess) {
     statusText = 'UNLOCKED';
-    statusColor = 'text-[#16A34A]';
+    statusEmoji = '⚡';
   } else if (isCoinGame) {
-    statusText = `🪙 ${coinCost} COINS`;
-    statusColor = 'text-amber-600';
-  } else if (game.isFree) {
-    statusText = 'FREE';
-    statusColor = 'text-[#16A34A]';
+    statusText = `${coinCost} COINS`;
+    statusEmoji = '🪙';
   } else if (isSubscriptionGame) {
     const dailyPrice = game.subscriptionOptions?.daily?.priceETB || 5;
-    statusText = `FROM ${dailyPrice} ETB`;
-    statusColor = 'text-[#1688C9]';
+    statusText = `${dailyPrice} ETB`;
+    statusEmoji = '🏆';
   }
 
   return (
     <div
       id={`game-card-${game.id}`}
       onClick={handleCardClick}
-      className={`game-card group relative rounded-[20px] bg-white border border-slate-200/90 hover:border-[#1688C9]/60 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden cursor-pointer flex flex-col select-none ${
+      className={`game-card group relative rounded-[20px] bg-white border border-[#e8efe0] hover:border-[#2f8fe6]/60 shadow-[0_4px_16px_rgba(20,45,14,0.08)] hover:shadow-[0_12px_28px_rgba(20,45,14,0.15)] transition-all duration-300 overflow-hidden cursor-pointer flex flex-col select-none ${
         layout === 'carousel'
-          ? 'w-[290px] xs:w-[310px] sm:w-[330px] shrink-0 snap-start'
+          ? 'w-[280px] xs:w-[300px] sm:w-[320px] shrink-0 snap-start'
           : 'w-full'
       } ${className}`}
     >
       {/* =========================================================================
-          ZONE 1: CLEAN PROMOTIONAL IMAGE CONTAINER (HERO)
-          - 16:9 fixed aspect ratio
-          - Unaltered, approved promotional key art
-          - Zero overlay obstructions
+          ZONE 1: 4:3 COVER IMAGE CONTAINER WITH OVERLAYS
          ========================================================================= */}
-      <div className="game-card-image relative w-full aspect-[16/9] overflow-hidden bg-slate-100 shrink-0">
+      <div className={`game-card-image relative w-full ${aspectRatio === '4/3' ? 'aspect-[4/3]' : 'aspect-[16/9]'} overflow-hidden bg-slate-100 shrink-0`}>
         <OriginalGameArtwork 
           gameId={game.id} 
-          alt={`${game.title} promotional key art`}
+          imageUrl={game.bannerUrl || game.thumbnailUrl}
+          alt={`${game.title} cover`}
           className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105" 
         />
+
+        {/* Top-Left Status Pill (e.g. 🎮 FREE) */}
+        <span className="absolute top-2.5 left-2.5 z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-xs text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-sm">
+          <span className="text-[10px]">{statusEmoji}</span>
+          <span>{statusText}</span>
+        </span>
+
+        {/* Top-Right Info "?" Button (How-to-play) */}
+        <button
+          type="button"
+          onClick={handleDetailsClick}
+          aria-label="Game Info & Rules"
+          className="absolute top-2.5 right-2.5 z-10 w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white text-[#1f7c14] font-black text-xs sm:text-sm flex items-center justify-center shadow-md hover:scale-110 active:scale-95 transition-transform cursor-pointer border border-emerald-100"
+        >
+          ?
+        </button>
       </div>
 
       {/* =========================================================================
-          ZONE 2: CLEAN WHITE INFORMATION PANEL (BELOW ARTWORK)
-          - Pure white background (#FFFFFF)
-          - Uniform fixed height (124px) ensuring all cards align identically
-          - Dark navy title, gold rating, green status, gray description, green PLAY
+          ZONE 2: CARD BODY (Title, Category, 4 Stats, and Play Now Button)
          ========================================================================= */}
-      <div className="game-card-info flex flex-col justify-between p-3.5 sm:p-4 bg-white h-[124px] shrink-0 border-t border-slate-100/90">
-        
-        {/* ROW 1: GAME TITLE (NAVY) & RATING BADGE (GOLD ACCENT) */}
-        <div className="flex items-start justify-between gap-2.5 min-w-0">
+      <div className="p-3 sm:p-3.5 flex flex-col justify-between flex-1 bg-white">
+        <div>
+          {/* Game Title */}
           <h3 
             title={game.title}
-            className="text-[17px] sm:text-[18px] font-extrabold text-[#111827] tracking-tight leading-tight line-clamp-1 flex-1 min-w-0"
+            className="text-[14px] sm:text-[16px] font-extrabold text-[#14213a] tracking-tight leading-tight line-clamp-1"
           >
             {game.title}
           </h3>
-          
-          {/* Compact Gold Rating Pill */}
-          <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-800 text-xs font-bold shrink-0 border border-slate-200/90 shadow-2xs mt-0.5">
-            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-            <span className="font-bold text-slate-800 text-[12px]">{formattedRating}</span>
+
+          {/* Subtitle / Genre */}
+          <p className="text-[12px] sm:text-[13px] text-[#64748B] font-medium leading-tight line-clamp-1 mt-0.5">
+            {game.category || game.genre || 'Arcade'}
+          </p>
+
+          {/* 4-Stat Grid (Rating, Players, Duration, High Score) */}
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1 my-2 sm:my-2.5 text-[11px] sm:text-[12px] font-medium text-slate-500">
+            <div className="flex items-center gap-1 truncate" title="Rating">
+              <span className="text-amber-400 text-xs">⭐</span>
+              <span className="font-bold text-amber-500">★★★★★</span>
+            </div>
+            <div className="flex items-center gap-1 truncate" title="Plays">
+              <span className="text-xs">👥</span>
+              <span className="font-bold text-slate-700">{formatPlays(game.playsCount)}</span>
+            </div>
+            <div className="flex items-center gap-1 truncate" title="Estimated Duration">
+              <span className="text-xs">⏱</span>
+              <span>2m</span>
+            </div>
+            <div className="flex items-center gap-1 truncate" title="High Score">
+              <span className="text-xs">🏆</span>
+              <span>—</span>
+            </div>
           </div>
         </div>
 
-        {/* ROW 2: STATUS (GREEN), DESCRIPTION (GRAY) & GREEN PLAY BUTTON */}
-        <div className="flex items-center justify-between gap-3 min-w-0">
-          <div className="min-w-0 flex-1 pr-1 flex flex-col justify-center">
-            <span className={`text-[11px] font-extrabold uppercase tracking-wider leading-none mb-1 ${statusColor}`}>
-              {statusText}
-            </span>
-            <p 
-              title={game.tagline || game.description}
-              className="text-[13px] text-[#64748B] font-normal leading-tight line-clamp-1"
-            >
-              {game.tagline || game.description}
-            </p>
-          </div>
-
-          {/* Signature GoPlay Green PLAY Action */}
-          <button
-            type="button"
-            onClick={handlePlayClick}
-            aria-label={`Play ${game.title}`}
-            className="shrink-0 h-[42px] px-4 sm:px-4.5 rounded-xl sm:rounded-2xl bg-[#8BCB3D] hover:bg-[#7db737] active:scale-95 text-white font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-sm shadow-[#8BCB3D]/30 transition-all cursor-pointer border border-lime-400/30"
-          >
-            <Play className="w-3.5 h-3.5 fill-current text-white" />
-            <span className="tracking-wider">PLAY</span>
-          </button>
-        </div>
+        {/* Wide Pill "Play Now" Button with Play Arrow Badge */}
+        <button
+          type="button"
+          onClick={handlePlayClick}
+          aria-label={`Play ${game.title}`}
+          className="w-full mt-1 py-1.5 sm:py-2 pl-3.5 pr-1.5 rounded-full bg-gradient-to-r from-[#2f8fe6] to-[#1f5fc4] hover:from-[#257cd0] hover:to-[#184fa8] active:scale-98 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between shadow-md hover:shadow-lg transition-all cursor-pointer"
+        >
+          <span className="tracking-wide">Play Now</span>
+          <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-white text-[#1f5fc4] flex items-center justify-center shadow-xs text-[10px] sm:text-xs font-black">
+            ▶
+          </span>
+        </button>
       </div>
     </div>
   );
 };
+
+export default ProfessionalGameCard;

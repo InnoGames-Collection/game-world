@@ -13,6 +13,7 @@ export interface GameCardProps {
   onPlay: (game: GameDefinition) => void;
   onClickDetails?: (game: GameDefinition) => void;
   layout?: 'carousel' | 'grid';
+  aspectRatio?: '4/3' | '16/9';
   hasActiveAccess?: boolean;
   className?: string;
 }

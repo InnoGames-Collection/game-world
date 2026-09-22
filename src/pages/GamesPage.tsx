@@ -67,7 +67,7 @@ export const GamesPage: React.FC<GamesPageProps> = ({
 
   return (
     <div className="min-h-screen bg-white text-[#17202A] pb-24 select-none">
-      <div className="max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 sm:px-4 pt-3 space-y-4">
+      <div className="max-w-md md:max-w-2xl lg:max-w-5xl mx-auto px-3 sm:px-4 pt-3 space-y-4">
         
         {/* Game Details Modal */}
         <GameDetailsModal
@@ -122,7 +122,7 @@ export const GamesPage: React.FC<GamesPageProps> = ({
           })}
         </div>
 
-        {/* 3. CATALOG GRID */}
+        {/* 3. CATALOG GRID (Smart 2-Column Mobile, 3-4 Column Web) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-black uppercase text-slate-400 tracking-wider">
@@ -131,7 +131,7 @@ export const GamesPage: React.FC<GamesPageProps> = ({
           </div>
 
           {filteredGames.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
               {filteredGames.map((game) => (
                 <GameCard
                   key={game.id}
@@ -139,6 +139,7 @@ export const GamesPage: React.FC<GamesPageProps> = ({
                   onPlay={onLaunchGame}
                   onClickDetails={(g) => setSelectedGameForDetails(g)}
                   layout="grid"
+                  aspectRatio="4/3"
                   hasActiveAccess={Boolean(activeEntitlements[game.id])}
                 />
               ))}
