@@ -5,7 +5,6 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { GoPlayLogo } from './GoPlayLogo';
 
 interface TelebirrAuthHandshakeModalProps {
   onSuccess: (phone?: string) => void;
@@ -53,11 +52,6 @@ export const TelebirrAuthHandshakeModal: React.FC<TelebirrAuthHandshakeModalProp
               <span className="text-[9px] font-semibold text-sky-200 block">telebirr</span>
             </div>
           </div>
-        </div>
-
-        {/* GoPlay Brand */}
-        <div className="bg-white/10 px-2.5 py-1 rounded-xl">
-          <GoPlayLogo size="xs" variant="dark" />
         </div>
 
         {/* Language selector */}

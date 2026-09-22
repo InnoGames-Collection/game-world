@@ -21,7 +21,7 @@ import { useGameLauncher } from "./useGameLauncher";
 import { useEconomyState } from "./useEconomyState";
 
 export function usePortalState() {
-  const [activeTab, setActiveTab] = useState<NavigationTab>("home");
+  const [activeTab, setActiveTab] = useState<NavigationTab>("games");
 
   // 1. Core Profile & Energy
   const { profile, setProfile } = useProfileState();

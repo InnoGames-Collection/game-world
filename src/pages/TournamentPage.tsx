@@ -66,64 +66,45 @@ export const TournamentPage: React.FC<TournamentPageProps> = ({
       <div className="max-w-md md:max-w-2xl lg:max-w-5xl mx-auto px-3 sm:px-4 pt-3 space-y-4">
         
         {/* =========================================================================
-            1. TOURNAMENT HERO BANNER & TIMER
+            1. TOURNAMENT CHAMPIONSHIP HERO BANNER
            ========================================================================= */}
-        <div className="relative rounded-3xl bg-slate-900 text-white p-4 sm:p-5 shadow-md overflow-hidden">
-          {/* Background Artwork Banner (1280x640 / 2:1 Cinematic) */}
-          <div className="absolute inset-0 z-0">
+        <div className="space-y-2.5">
+          <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md border border-slate-200 bg-slate-900">
             <img 
-              src="/brand/goplay-banner.png" 
-              alt="Tournament Hero" 
-              className="w-full h-full object-cover opacity-25"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              src="/images/banners/tournament-top-banner.jpeg" 
+              alt="GoPlay Tournament Championship" 
+              className="w-full h-auto object-cover block"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/images/banners/1. tournament top Banner.jpeg';
+              }}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#0a3f66] via-[#10598a]/90 to-[#1688C9]/85" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0d2a42]/90 via-transparent to-transparent" />
-          </div>
+            {/* Live Status & Countdown Timer floating badge */}
+            <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#8BCB3D] text-white text-[10px] font-black uppercase tracking-wider shadow-md">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span>WEEKLY LIVE</span>
+              </span>
 
-          <div className="relative z-10 space-y-3">
-            {/* Badges row */}
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#8BCB3D] text-white text-[10px] font-black uppercase tracking-wider shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  <span>WEEKLY TOURNAMENT • LIVE</span>
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-white/20 text-white text-[10px] font-extrabold uppercase backdrop-blur-xs">
-                  {config.frequency}
-                </span>
-              </div>
-
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-amber-300 text-[10px] font-black">
+              <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-amber-300 text-[10px] font-black shadow-md">
                 <Clock className="w-3 h-3 text-amber-300" />
                 <span>{timeRemaining.formatted}</span>
               </div>
             </div>
+          </div>
 
-            {/* Title & Description */}
+          {/* Quick Tournament Summary Card */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-3 sm:p-3.5 shadow-xs flex items-center justify-between gap-2">
             <div>
-              <h1 className="text-xl sm:text-2xl font-black text-white leading-tight tracking-tight">
+              <h1 className="text-base sm:text-lg font-black text-[#17202A] leading-tight">
                 {config.title}
               </h1>
-              <p className="text-xs text-blue-100 font-medium mt-1 leading-relaxed">
-                Compete across this week's 4 featured games. Your tournament ranking is calculated from your <strong className="text-white font-extrabold">single highest score</strong> (Best Score).
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                4 featured games • Ranked by your single highest score
               </p>
             </div>
-
-            {/* Quick Stats Pill Bar */}
-            <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-2 border border-white/10">
-                <div className="text-[9px] uppercase font-bold text-blue-200">Total Prize Pool</div>
-                <div className="text-xs sm:text-sm font-black text-amber-300">10,000+ ETB</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-2 border border-white/10">
-                <div className="text-[9px] uppercase font-bold text-blue-200">Active Games</div>
-                <div className="text-xs sm:text-sm font-black text-white">{participatingGames.length} Games</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-xs rounded-xl p-2 border border-white/10">
-                <div className="text-[9px] uppercase font-bold text-blue-200">Players Joined</div>
-                <div className="text-xs sm:text-sm font-black text-white">{totalParticipants.toLocaleString()}</div>
-              </div>
+            <div className="text-right shrink-0">
+              <span className="text-[9px] uppercase font-bold text-slate-400 block">Total Prize</span>
+              <span className="text-sm sm:text-base font-black text-[#8BCB3D]">85,000+ ETB</span>
             </div>
           </div>
         </div>

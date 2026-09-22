@@ -200,8 +200,8 @@ export default function App() {
       }
 
       // 6. Navigation Tabs
-      if (activeTab !== 'home') {
-        setActiveTab('home');
+      if (activeTab !== 'games') {
+        setActiveTab('games');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }

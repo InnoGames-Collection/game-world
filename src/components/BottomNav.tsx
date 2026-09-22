@@ -56,9 +56,9 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange, labels }) => {
   const tabs: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'home', label: labels?.home || 'HOME', icon: Home },
     { id: 'games', label: labels?.games || 'GAMES', icon: Gamepad2 },
     { id: 'tournament', label: labels?.tournament || 'TOURNAMENT', icon: TournamentCupIcon },
+    { id: 'home', label: labels?.home || 'HOME', icon: Home },
     { id: 'leaderboard', label: labels?.leaderboard || 'LEADERBOARD', icon: Trophy },
     { id: 'profile', label: labels?.profile || 'PROFILE', icon: User },
   ];

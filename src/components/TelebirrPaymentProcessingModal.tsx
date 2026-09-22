@@ -4,7 +4,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { GoPlayLogo } from './GoPlayLogo';
 import { ArrowLeft, Check } from 'lucide-react';
 import { GamePlan } from './TelebirrPlanSelectionModal';
 import { UserProfile } from '../types';
@@ -110,8 +109,6 @@ export const TelebirrPaymentProcessingModal: React.FC<TelebirrPaymentProcessingM
               <span className="text-[9px] font-semibold text-[#0A78BE] block">telebirr</span>
             </div>
           </div>
-
-          <GoPlayLogo size="xs" />
 
           <div className="text-xs font-semibold text-slate-500 flex items-center gap-1">
             <span>En</span>

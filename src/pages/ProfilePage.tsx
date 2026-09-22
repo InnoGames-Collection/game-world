@@ -49,7 +49,6 @@ import { PrivacyPage } from './content/PrivacyPage';
 import { EntitlementService } from '../services/entitlementService';
 import { GameCatalog } from '../services/gameCatalog';
 import { catalogGameToDefinition } from '../games/registry';
-import { GoPlayLogo } from '../components/GoPlayLogo';
 import { TournamentService } from '../services/tournamentService';
 
 export type ProfileSubView =
@@ -269,12 +268,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   // =========================================================================
   return (
     <div className="min-h-screen bg-white text-[#17202A] pb-24 max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 pt-3 space-y-4 select-none">
-      
-      {/* Official GoPlay Profile Brand Header */}
-      <div className="flex flex-col items-center justify-center py-2">
-        <GoPlayLogo size="lg" />
-      </div>
-
       {/* 1. TOP: Authenticated GoPlay Profile Card */}
       <div 
         id="profile-account-card"
@@ -282,8 +275,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white p-1.5 flex items-center justify-center shadow-xs shrink-0">
-              <GoPlayLogo size="xs" />
+            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-xs flex items-center justify-center shadow-xs shrink-0 text-white">
+              <User className="w-6 h-6 stroke-[2.5]" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
