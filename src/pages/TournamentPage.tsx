@@ -17,6 +17,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { UserProfile, GameDefinition } from '../types';
 import { TournamentService, OverallTournamentEntry } from '../services/tournamentService';
 import { catalogGameToDefinition } from '../games/registry';
+import { GameCard } from '../components/GameCard';
 import { 
   Swords, 
   Clock, 
@@ -62,15 +63,23 @@ export const TournamentPage: React.FC<TournamentPageProps> = ({
 
   return (
     <div className="min-h-screen bg-white text-[#17202A] pb-24 select-none">
-      <div className="max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 sm:px-4 pt-3 space-y-4">
+      <div className="max-w-md md:max-w-2xl lg:max-w-5xl mx-auto px-3 sm:px-4 pt-3 space-y-4">
         
         {/* =========================================================================
             1. TOURNAMENT HERO BANNER & TIMER
            ========================================================================= */}
-        <div className="relative rounded-2xl bg-gradient-to-br from-[#1688C9] via-[#0f71aa] to-[#0a5c8c] text-white p-4 sm:p-5 shadow-sm overflow-hidden">
-          {/* Subtle background decoration */}
-          <div className="absolute right-0 top-0 translate-x-6 -translate-y-6 w-36 h-36 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute left-1/2 bottom-0 w-44 h-24 bg-[#8BCB3D]/20 rounded-full blur-xl pointer-events-none" />
+        <div className="relative rounded-3xl bg-slate-900 text-white p-4 sm:p-5 shadow-md overflow-hidden">
+          {/* Background Artwork Banner (1280x640 / 2:1 Cinematic) */}
+          <div className="absolute inset-0 z-0">
+            <img 
+              src="/brand/goplay-banner.png" 
+              alt="Tournament Hero" 
+              className="w-full h-full object-cover opacity-25"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0a3f66] via-[#10598a]/90 to-[#1688C9]/85" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0d2a42]/90 via-transparent to-transparent" />
+          </div>
 
           <div className="relative z-10 space-y-3">
             {/* Badges row */}
@@ -85,7 +94,7 @@ export const TournamentPage: React.FC<TournamentPageProps> = ({
                 </span>
               </div>
 
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/30 backdrop-blur-md text-amber-300 text-[10px] font-black">
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/40 backdrop-blur-md text-amber-300 text-[10px] font-black">
                 <Clock className="w-3 h-3 text-amber-300" />
                 <span>{timeRemaining.formatted}</span>
               </div>
@@ -200,90 +209,38 @@ export const TournamentPage: React.FC<TournamentPageProps> = ({
         </div>
 
         {/* =========================================================================
-            3. FOUR PARTICIPATING TOURNAMENT GAMES
+            3. FOUR PARTICIPATING TOURNAMENT GAMES (Smart 2-Column Mobile, 4-Col Web)
            ========================================================================= */}
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <div>
-              <h2 className="text-sm font-black uppercase tracking-wider text-[#17202A] flex items-center gap-1.5">
+              <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-[#17202A] flex items-center gap-1.5">
                 <Swords className="w-4 h-4 text-[#1688C9]" />
-                <span>Active Tournament Games (4)</span>
+                <span>Active Tournament Games ({participatingGames.length})</span>
               </h2>
               <p className="text-[11px] text-slate-500 font-medium">
-                Play any or all 4 games to set your highest single score
+                Play any or all games to set your highest single score
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3.5">
             {participatingGames.map((game) => {
               const gameDef = catalogGameToDefinition(game);
               const userScore = currentUserScores[game.gameId] || 0;
               const isBest = currentUserBestScore > 0 && userScore === currentUserBestScore;
 
               return (
-                <div
+                <GameCard
                   key={game.gameId}
-                  id={`tournament-game-${game.gameId}`}
-                  className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs hover:border-[#1688C9]/50 transition-all flex flex-col justify-between"
-                >
-                  <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
-                    <img
-                      src={game.banner}
-                      alt={game.gameName}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-
-                    {/* Game Category Badge */}
-                    <div className="absolute top-2 left-2">
-                      <span className="px-2 py-0.5 rounded-md bg-white/90 text-[#17202A] text-[9px] font-black uppercase tracking-wider shadow-xs">
-                        {game.category}
-                      </span>
-                    </div>
-
-                    {/* Best Game indicator if applicable */}
-                    {isBest && (
-                      <div className="absolute top-2 right-2">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shadow-xs flex items-center gap-1">
-                          <Star className="w-2.5 h-2.5 fill-current" />
-                          <span>YOUR BEST</span>
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Game Title over image */}
-                    <div className="absolute bottom-2 left-2.5 right-2.5">
-                      <h3 className="text-base font-black text-white leading-tight drop-shadow-sm truncate">
-                        {game.gameName}
-                      </h3>
-                      <p className="text-[10px] text-slate-200 truncate">
-                        {game.tagline}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="p-3 flex items-center justify-between gap-2">
-                    <div>
-                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                        Your Game Score
-                      </div>
-                      <div className="text-sm font-black text-[#17202A]">
-                        {userScore.toLocaleString()} <span className="text-[10px] font-normal text-slate-500">pts</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onPlayGame(gameDef)}
-                      className="py-2 px-3.5 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] text-white font-black text-xs transition-transform active:scale-95 shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      <span>Play Now</span>
-                    </button>
-                  </div>
-                </div>
+                  game={gameDef}
+                  onPlay={onPlayGame}
+                  layout="grid"
+                  aspectRatio="4/3"
+                  hasActiveAccess={true}
+                  tournamentBadge={isBest ? '★ YOUR BEST' : '🏆 TOURNAMENT'}
+                  userScore={userScore}
+                />
               );
             })}
           </div>

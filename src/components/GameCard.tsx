@@ -15,6 +15,8 @@ export interface GameCardProps {
   layout?: 'carousel' | 'grid';
   aspectRatio?: '4/3' | '16/9';
   hasActiveAccess?: boolean;
+  tournamentBadge?: string;
+  userScore?: number;
   className?: string;
 }
 

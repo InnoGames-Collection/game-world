@@ -9,6 +9,8 @@ export interface ProfessionalGameCardProps {
   layout?: 'carousel' | 'grid';
   aspectRatio?: '4/3' | '16/9';
   hasActiveAccess?: boolean;
+  tournamentBadge?: string;
+  userScore?: number;
   className?: string;
 }
 
@@ -34,6 +36,8 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
   layout = 'grid',
   aspectRatio = '4/3',
   hasActiveAccess = false,
+  tournamentBadge,
+  userScore,
   className = '',
 }) => {
   const isFreeDirectGame = game.id === 'candy-blast' || game.id === 'world-legends';
@@ -62,7 +66,10 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
   // Status badge on cover
   let statusText = 'FREE';
   let statusEmoji = '🎮';
-  if (hasActiveAccess) {
+  if (tournamentBadge) {
+    statusText = tournamentBadge;
+    statusEmoji = '🏆';
+  } else if (hasActiveAccess) {
     statusText = 'UNLOCKED';
     statusEmoji = '⚡';
   } else if (isCoinGame) {
@@ -144,9 +151,11 @@ export const ProfessionalGameCard: React.FC<ProfessionalGameCardProps> = ({
               <span className="text-xs">⏱</span>
               <span>2m</span>
             </div>
-            <div className="flex items-center gap-1 truncate" title="High Score">
+            <div className="flex items-center gap-1 truncate" title={userScore ? "Your Score" : "High Score"}>
               <span className="text-xs">🏆</span>
-              <span>—</span>
+              <span className={userScore ? "font-bold text-amber-600" : ""}>
+                {userScore ? `${userScore.toLocaleString()} pts` : "—"}
+              </span>
             </div>
           </div>
         </div>
