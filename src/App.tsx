@@ -21,7 +21,7 @@ import { GameAccessModal } from './components/GameAccessModal';
 import { CoinTopupModal } from './components/CoinTopupModal';
 import { GameDetailsModal } from './components/GameDetailsModal';
 import { TermsAndPrivacyModal } from './components/TermsAndPrivacyModal';
-import { MainMenuDrawer, MainMenuSection } from './components/MainMenuDrawer';
+import type { MainMenuSection } from './components/MainMenuDrawer';
 
 // Telebirr Game Center Miniapp Flow Modals (Mazaber Flow Images 1 to 11)
 import { TelebirrAuthHandshakeModal } from './components/TelebirrAuthHandshakeModal';
@@ -448,7 +448,6 @@ export default function App() {
           <Header
             profile={profile}
             onOpenBuyCoins={handleOpenCoinTopup}
-            onOpenMenu={handleOpenMainMenu}
           />
         )}
 
@@ -547,6 +546,7 @@ export default function App() {
                   games={allGames}
                   profile={profile}
                   onLaunchGame={handlePlayGame}
+                  onOpenBuyCoins={handleOpenCoinTopup}
                   initialCategory={selectedCategoryFilter}
                   activeEntitlements={activeEntitlements}
                 />
@@ -556,6 +556,8 @@ export default function App() {
                 <TournamentPage
                   profile={profile}
                   onPlayGame={handlePlayGame}
+                  onOpenBuyCoins={handleOpenCoinTopup}
+                  onProfileUpdate={setProfile}
                 />
               )}
 
@@ -582,13 +584,6 @@ export default function App() {
             </>
           )}
         </main>
-
-        {/* 3. Main Menu Drawer */}
-        <MainMenuDrawer
-          isOpen={isMainMenuOpen}
-          onClose={handleCloseMainMenu}
-          onSelectSection={(sec) => navigateToContentSection(sec)}
-        />
 
         {/* 4. Mobile-First Bottom Navigation Bar (5 Tabs) */}
         <BottomNav

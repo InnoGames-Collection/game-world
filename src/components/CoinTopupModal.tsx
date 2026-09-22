@@ -53,7 +53,7 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
         amountETB: selectedPack.priceETB,
         packageId: selectedPack.packageId,
         itemType: 'COIN_PACK',
-        itemTitle: `${selectedPack.coins} GoPlay Coins (${selectedPack.playsLabel})`,
+        itemTitle: `${selectedPack.coins} GoPlay Coins`,
       });
 
       if (res.status === 'SUCCESS') {
@@ -64,7 +64,7 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
         StorageService.saveProfile(updated);
         onProfileUpdate(updated);
 
-        setSuccessMsg(`Successfully credited ${selectedPack.coins} GoPlay Coins! (${selectedPack.playsLabel})`);
+        setSuccessMsg(`Successfully credited ${selectedPack.coins} GoPlay Coins!`);
         setTimeout(() => {
           setSuccessMsg(null);
           onClose();
@@ -90,9 +90,9 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
         {/* Header */}
         <div className="bg-[#1688C9] text-white p-4 sm:p-5 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black tracking-tight">GoPlay Tournament Coins</h3>
+            <h3 className="text-lg font-black tracking-tight">GoPlay Coins</h3>
             <p className="text-xs text-blue-100 font-medium mt-0.5">
-              10 ETB = 10 Coins (5 Tournament Matches)
+              1 Coin = 1 ETB
             </p>
           </div>
           <button
@@ -128,21 +128,15 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
                   key={pkg.coins}
                   type="button"
                   onClick={() => setSelectedIdx(idx)}
-                  className={`relative p-3.5 sm:p-4 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                  className={`relative p-4 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
                     isSelected
                       ? 'border-[#8BCB3D] bg-lime-50/70 shadow-md ring-2 ring-[#8BCB3D] -translate-y-0.5'
                       : 'border-slate-200 hover:border-slate-300 bg-white shadow-2xs'
                   }`}
                 >
-                  <div className="text-2xl sm:text-3xl mb-1">🪙</div>
-                  <div className="text-xs sm:text-sm font-black text-[#17202A] tracking-tight uppercase">
-                    {pkg.priceETB} ETB
-                  </div>
-                  <div className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5 uppercase">
-                    {pkg.coins} COINS
-                  </div>
-                  <div className="text-[9px] font-semibold text-emerald-600 mt-1">
-                    {pkg.playsLabel}
+                  <div className="text-2xl sm:text-3xl mb-1.5">🪙</div>
+                  <div className="text-sm font-black text-[#17202A] tracking-tight">
+                    {pkg.coins} Coins
                   </div>
                 </button>
               );
@@ -158,7 +152,7 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
             {isProcessing ? (
               <span className="inline-block animate-pulse">Connecting to telebirr...</span>
             ) : (
-              <span>BUY {selectedPack.coins} COINS ({selectedPack.priceETB} ETB)</span>
+              <span>Buy</span>
             )}
           </button>
         </div>

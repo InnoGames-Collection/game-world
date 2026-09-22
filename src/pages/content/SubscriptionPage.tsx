@@ -33,39 +33,24 @@ interface SubscriptionPageProps {
 const ALL_ACCESS_PASSES = [
   {
     id: 'daily' as SubscriptionPlan,
-    name: 'Daily All-Access Pass',
-    priceETB: 5,
+    name: 'Daily',
+    priceETB: 10,
     period: '24 Hours',
-    features: [
-      'Unlimited plays across all standard catalog games',
-      'Instant session passes for coin and puzzle titles',
-      'Daily leaderboard ranking eligibility',
-    ],
+    description: '24-hour access to all games and tournaments.',
   },
   {
     id: 'weekly' as SubscriptionPlan,
-    name: 'Weekly Champion Pass',
+    name: 'Weekly',
     priceETB: 20,
     period: '7 Days',
-    popular: true,
-    features: [
-      'Unlimited 7-day plays on all 20+ games',
-      'Weekly national championship qualification',
-      'Includes 30 bonus GoPlay Coins',
-      'Save 43% vs Daily passes',
-    ],
+    description: '7-day access to all games and tournaments.',
   },
   {
     id: 'monthly' as SubscriptionPlan,
-    name: 'Monthly VIP Grandmaster',
+    name: 'Monthly',
     priceETB: 50,
     period: '30 Days',
-    features: [
-      '30 days unlimited access to the entire game catalog',
-      '100 bonus GoPlay Coins credited to wallet',
-      'Grand tournament leaderboard priority',
-      'Best value: save 66%',
-    ],
+    description: '30-day access to all games and tournaments.',
   },
 ];
 
@@ -95,12 +80,9 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
       if (pass.id === 'weekly') durationMs = 7 * 24 * 60 * 60 * 1000;
       if (pass.id === 'monthly') durationMs = 30 * 24 * 60 * 60 * 1000;
 
-      const bonusCoins = pass.id === 'weekly' ? 30 : pass.id === 'monthly' ? 100 : 0;
-
       const updated: UserProfile = {
         ...profile,
         telebirrBalance: Math.max(0, profile.telebirrBalance - pass.priceETB),
-        coins: profile.coins + bonusCoins,
         subscription: {
           plan: pass.id,
           isActive: true,
@@ -115,7 +97,7 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
       }
 
       setIsProcessing(false);
-      setSuccessMsg(`Activated ${pass.name}!`);
+      setSuccessMsg(`Activated ${pass.name} subscription!`);
       setTimeout(() => setSuccessMsg(null), 2500);
     }, 400);
   };
@@ -139,7 +121,7 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
             )}
             <div className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-amber-300 shrink-0" />
-              <h1 className="text-base font-black tracking-tight">Subscriptions & Passes</h1>
+              <h1 className="text-base font-black tracking-tight">Subscriptions</h1>
             </div>
           </div>
           {profile && (
@@ -175,7 +157,7 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
             </div>
             <div>
               <div className="text-xs font-black text-emerald-950 capitalize">
-                {profile.subscription.plan} All-Access Active
+                {profile.subscription.plan} Subscription Active
               </div>
               <div className="text-[10px] text-emerald-700">
                 Auto-renews via telebirr SuperApp
@@ -193,34 +175,12 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
         {ALL_ACCESS_PASSES.map((pass) => (
           <div
             key={pass.id}
-            className={`p-4 rounded-2xl bg-white border transition-all relative shadow-xs ${
-              pass.popular
-                ? 'border-[#8BCB3D] ring-2 ring-[#8BCB3D]/20'
-                : 'border-slate-200/80'
-            }`}
+            className="p-4 rounded-2xl bg-white border border-slate-200/80 transition-all shadow-xs"
           >
-            {pass.popular && (
-              <span className="absolute -top-2.5 right-4 px-2.5 py-0.5 rounded-full bg-[#8BCB3D] text-white text-[9px] font-black uppercase tracking-wider shadow-xs">
-                Popular Choice
-              </span>
-            )}
-
             <div className="flex items-center justify-between gap-2">
               <div>
                 <h4 className="text-sm sm:text-base font-black text-[#17202A]">{pass.name}</h4>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="text-xs font-semibold text-slate-500">{pass.period}</span>
-                  {pass.id === 'weekly' && (
-                    <span className="text-[10px] font-black text-[#8BCB3D] bg-lime-50 px-1.5 py-0.5 rounded-md border border-lime-200">
-                      +30 Coins
-                    </span>
-                  )}
-                  {pass.id === 'monthly' && (
-                    <span className="text-[10px] font-black text-[#8BCB3D] bg-lime-50 px-1.5 py-0.5 rounded-md border border-lime-200">
-                      +100 Coins
-                    </span>
-                  )}
-                </div>
+                <span className="text-xs font-semibold text-slate-500">{pass.period}</span>
               </div>
 
               <div className="text-right">
@@ -228,10 +188,8 @@ export const SubscriptionPage: React.FC<SubscriptionPageProps> = ({
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 mt-2 line-clamp-1">
-              {pass.id === 'daily' && 'Instant 24-hour access to all games and tournaments.'}
-              {pass.id === 'weekly' && 'Full 7-day all-game access + weekly tournament qualification.'}
-              {pass.id === 'monthly' && 'Full 30-day VIP access + grand prize tournament priority.'}
+            <p className="text-xs text-slate-500 mt-2">
+              {pass.description}
             </p>
 
             <button

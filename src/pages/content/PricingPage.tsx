@@ -9,11 +9,7 @@ import {
   ArrowLeft, 
   Coins, 
   Trophy, 
-  Gift, 
-  CheckCircle2, 
-  Sparkles, 
   CreditCard,
-  Wallet,
   ShieldCheck
 } from 'lucide-react';
 
@@ -47,33 +43,31 @@ export const PricingPage: React.FC<PricingPageProps> = ({
             )}
             <div className="flex items-center gap-2">
               <BadgePercent className="w-5 h-5 text-amber-300 shrink-0" />
-              <h1 className="text-base font-black tracking-tight">Pricing & Wallet</h1>
+              <h1 className="text-base font-black tracking-tight">Pricing & Coin</h1>
             </div>
           </div>
         </div>
       )}
 
       <div className="space-y-4">
-        {/* SECTION 1: ALL-ACCESS PASSES */}
+        {/* SECTION 1: SUBSCRIPTIONS */}
         <section className="space-y-2">
           <div className="flex items-center gap-2 px-1">
             <CreditCard className="w-4 h-4 text-[#1688C9]" />
             <h2 className="text-xs font-black text-slate-600 uppercase tracking-wider">
-              All-Access Passes
+              Subscriptions
             </h2>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             {[
-              { package: 'Daily', price: '5 ETB', duration: '24 Hours' },
-              { package: 'Weekly', price: '20 ETB', duration: '7 Days', bonus: '+30 Coins', popular: true },
-              { package: 'Monthly', price: '50 ETB', duration: '30 Days', bonus: '+100 Coins' },
+              { package: 'Daily', price: '10 ETB', duration: '24 Hours' },
+              { package: 'Weekly', price: '20 ETB', duration: '7 Days' },
+              { package: 'Monthly', price: '50 ETB', duration: '30 Days' },
             ].map((pkg) => (
               <div
                 key={pkg.package}
-                className={`rounded-2xl p-3 border flex flex-col justify-between text-center transition-all bg-white ${
-                  pkg.popular ? 'border-[#8BCB3D] ring-2 ring-[#8BCB3D]/20 shadow-xs' : 'border-slate-200/80 shadow-2xs'
-                }`}
+                className="rounded-2xl p-3 border border-slate-200/80 shadow-2xs flex flex-col justify-between text-center transition-all bg-white"
               >
                 <div>
                   <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
@@ -85,24 +79,19 @@ export const PricingPage: React.FC<PricingPageProps> = ({
                   <div className="text-[10px] text-slate-400 mt-0.5 font-medium">
                     {pkg.duration}
                   </div>
-                  {pkg.bonus && (
-                    <div className="text-[9px] font-black text-[#8BCB3D] bg-lime-50 rounded-md py-0.5 mt-1 border border-lime-200">
-                      {pkg.bonus}
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        {/* SECTION 2: COIN PACKS */}
+        {/* SECTION 2: COIN */}
         <section className="space-y-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <Coins className="w-4 h-4 text-amber-500" />
               <h2 className="text-xs font-black text-slate-600 uppercase tracking-wider">
-                Coin Packs
+                Coin
               </h2>
             </div>
             {onBuyCoins && (
@@ -111,47 +100,27 @@ export const PricingPage: React.FC<PricingPageProps> = ({
                 onClick={onBuyCoins}
                 className="text-xs font-black text-[#1688C9] hover:underline cursor-pointer"
               >
-                Top Up
+                Buy
               </button>
             )}
           </div>
 
           <div className="grid grid-cols-3 gap-2">
             {[
-              { coins: 10, price: '10 ETB', label: 'Starter' },
-              { coins: 25, price: '25 ETB', label: 'Popular', popular: true },
-              { coins: 50, price: '50 ETB', label: 'Best Value' },
+              { coins: 10, price: '10 ETB' },
+              { coins: 30, price: '30 ETB' },
+              { coins: 50, price: '50 ETB' },
             ].map((item) => (
               <button
                 key={item.coins}
                 type="button"
                 onClick={onBuyCoins}
-                className={`p-3 rounded-2xl border text-center transition-all bg-white cursor-pointer active:scale-98 ${
-                  item.popular ? 'border-amber-400 ring-2 ring-amber-400/20 shadow-xs' : 'border-slate-200/80 shadow-2xs'
-                }`}
+                className="p-3 rounded-2xl border border-slate-200/80 shadow-2xs text-center transition-all bg-white cursor-pointer active:scale-98 hover:border-[#8BCB3D]/60"
               >
                 <div className="text-sm sm:text-base font-black text-[#17202A]">🪙 {item.coins}</div>
                 <div className="text-xs font-black text-[#1688C9] mt-0.5">{item.price}</div>
-                <div className="text-[9px] text-amber-700 font-extrabold mt-1 uppercase tracking-wider">
-                  {item.label}
-                </div>
               </button>
             ))}
-          </div>
-        </section>
-
-        {/* SECTION 3: WELCOME BONUS */}
-        <section className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-3.5 border border-amber-200/80 shadow-xs flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-            <Gift className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-xs font-black text-amber-950">
-              telebirr SuperApp Welcome Bonus
-            </h3>
-            <p className="text-[11px] text-amber-900 mt-0.5 leading-snug">
-              Every verified telebirr user receives <strong>50 Free Coins</strong> on first visit!
-            </p>
           </div>
         </section>
 

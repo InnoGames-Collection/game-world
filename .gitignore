@@ -8,3 +8,5 @@ coverage/
 !.env.example
 backend/node_modules/
 backend/dist/
+public/images/banners/*.png
+public/images/banners/yass/

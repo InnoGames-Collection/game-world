@@ -65,6 +65,34 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
     ? `${profile.phoneNumber.slice(0, 3)}*****${profile.phoneNumber.slice(-3)}` 
     : '091*****890';
 
+  const GAME_THEMES: Record<string, { tabSelected: string; tabUnselected: string; cardGradient: string }> = {
+    'crazy-colors': {
+      tabSelected: 'bg-fuchsia-600 text-white shadow-xs font-black ring-2 ring-fuchsia-400/30',
+      tabUnselected: 'bg-fuchsia-50/80 hover:bg-fuchsia-100 text-fuchsia-900 border border-fuchsia-200/60 font-extrabold',
+      cardGradient: 'bg-gradient-to-r from-fuchsia-600 to-pink-600',
+    },
+    'fruit-slice': {
+      tabSelected: 'bg-emerald-600 text-white shadow-xs font-black ring-2 ring-emerald-400/30',
+      tabUnselected: 'bg-emerald-50/80 hover:bg-emerald-100 text-emerald-900 border border-emerald-200/60 font-extrabold',
+      cardGradient: 'bg-gradient-to-r from-emerald-600 to-teal-600',
+    },
+    'helix-jump': {
+      tabSelected: 'bg-sky-600 text-white shadow-xs font-black ring-2 ring-sky-400/30',
+      tabUnselected: 'bg-sky-50/80 hover:bg-sky-100 text-sky-900 border border-sky-200/60 font-extrabold',
+      cardGradient: 'bg-gradient-to-r from-sky-600 to-cyan-600',
+    },
+    'pop-piano': {
+      tabSelected: 'bg-indigo-600 text-white shadow-xs font-black ring-2 ring-indigo-400/30',
+      tabUnselected: 'bg-indigo-50/80 hover:bg-indigo-100 text-indigo-900 border border-indigo-200/60 font-extrabold',
+      cardGradient: 'bg-gradient-to-r from-indigo-600 to-purple-600',
+    },
+    'overall-best': {
+      tabSelected: 'bg-amber-500 text-white shadow-xs font-black ring-2 ring-amber-400/40',
+      tabUnselected: 'bg-amber-100/80 hover:bg-amber-200/80 text-amber-950 font-black border border-amber-300/60',
+      cardGradient: 'bg-gradient-to-r from-amber-500 to-amber-600',
+    },
+  };
+
   return (
     <div className="min-h-screen bg-white text-[#17202A] pb-24 select-none">
       <div className="max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3.5 sm:px-4 pt-3 space-y-4">
@@ -74,16 +102,6 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
                1. Crazy Color  2. Fruit Ninja  3. Helix Jump  4. Pop Piano  5. Overall Best
            ========================================================================= */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between px-1">
-            <div className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-              <Swords className="w-3.5 h-3.5 text-[#1688C9]" />
-              <span>Tournament Leaderboards</span>
-            </div>
-            <span className="text-[10px] font-bold text-slate-400">
-              5 Leaderboard Sections
-            </span>
-          </div>
-
           <div 
             className="flex gap-2 overflow-x-auto scrollbar-none pb-1 snap-x snap-mandatory"
             style={{ WebkitOverflowScrolling: 'touch' }}
@@ -91,14 +109,13 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             {/* First 4: Individual Tournament Games */}
             {tournamentGames.map((g) => {
               const isSelected = selectedTab === g.gameId;
+              const theme = GAME_THEMES[g.gameId] || GAME_THEMES['helix-jump'];
               return (
                 <button
                   key={g.gameId}
                   onClick={() => setSelectedTab(g.gameId)}
-                  className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 snap-start transition-all cursor-pointer active:scale-95 ${
-                    isSelected
-                      ? 'bg-[#1688C9] text-white shadow-xs font-black'
-                      : 'bg-slate-100 hover:bg-slate-200 text-[#17202A]'
+                  className={`px-3.5 py-1.5 rounded-xl text-xs shrink-0 snap-start transition-all cursor-pointer active:scale-95 ${
+                    isSelected ? theme.tabSelected : theme.tabUnselected
                   }`}
                 >
                   {g.gameName}
@@ -109,10 +126,10 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
             {/* Fifth: Overall Best */}
             <button
               onClick={() => setSelectedTab('overall-best')}
-              className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs shrink-0 snap-start transition-all cursor-pointer active:scale-95 flex items-center gap-1 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs shrink-0 snap-start transition-all cursor-pointer active:scale-95 flex items-center gap-1 ${
                 selectedTab === 'overall-best'
-                  ? 'bg-amber-500 text-white shadow-xs font-black ring-2 ring-amber-400/40'
-                  : 'bg-amber-100/80 hover:bg-amber-200/80 text-amber-950 font-black'
+                  ? GAME_THEMES['overall-best'].tabSelected
+                  : GAME_THEMES['overall-best'].tabUnselected
               }`}
             >
               <span>★ Overall Best</span>
@@ -263,7 +280,7 @@ export const LeaderboardPage: React.FC<LeaderboardPageProps> = ({
           individualLeaderboardData && (
             <div className="space-y-4">
               {/* Selected Game Header & Current User Rank Card */}
-              <div className="relative rounded-2xl bg-[#1688C9] text-white p-4 shadow-sm overflow-hidden">
+              <div className={`relative rounded-2xl ${GAME_THEMES[individualLeaderboardData.game.gameId]?.cardGradient || 'bg-[#1688C9]'} text-white p-4 shadow-sm overflow-hidden`}>
                 <div className="relative z-10 flex items-center justify-between gap-3">
                   <div className="space-y-1 min-w-0">
                     <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#8BCB3D] text-white text-[9px] font-black uppercase tracking-wider">

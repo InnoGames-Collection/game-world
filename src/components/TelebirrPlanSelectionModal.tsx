@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { GoPlayLogo } from './GoPlayLogo';
 
 export interface GamePlan {
   id: 'daily' | 'weekly' | 'monthly';
@@ -33,7 +34,7 @@ export const GAME_PLANS: GamePlan[] = [
     name: 'Weekly',
     durationLabel: '7 days',
     durationHours: 168,
-    priceETB: 25,
+    priceETB: 20,
     description: '7-day unlimited access with double XP leveling.',
   },
   {
@@ -89,16 +90,22 @@ export const TelebirrPlanSelectionModal: React.FC<TelebirrPlanSelectionModalProp
 
         {/* Brand Logos Header */}
         <div className="px-6 pt-4 pb-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <svg viewBox="0 0 32 32" className="w-6 h-6 shrink-0" fill="none">
-              <circle cx="16" cy="16" r="14" fill="#0A78BE" />
-              <path d="M16 6L20 14H12L16 6Z" fill="#8BCB3D" />
-              <circle cx="16" cy="20" r="4" fill="#FFFFFF" />
-            </svg>
-            <div className="leading-none text-left">
-              <span className="text-[10px] font-bold text-slate-800 block">ቴሌብር</span>
-              <span className="text-[9px] font-semibold text-[#0A78BE] block">telebirr</span>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <svg viewBox="0 0 32 32" className="w-6 h-6 shrink-0" fill="none">
+                <circle cx="16" cy="16" r="14" fill="#0A78BE" />
+                <path d="M16 6L20 14H12L16 6Z" fill="#8BCB3D" />
+                <circle cx="16" cy="20" r="4" fill="#FFFFFF" />
+              </svg>
+              <div className="leading-none text-left">
+                <span className="text-[10px] font-bold text-slate-800 block">ቴሌብር</span>
+                <span className="text-[9px] font-semibold text-[#0A78BE] block">telebirr</span>
+              </div>
             </div>
+
+            <div className="h-4 w-px bg-slate-200 mx-0.5" />
+
+            <GoPlayLogo size="xs" />
           </div>
 
           <div className="text-xs font-semibold text-slate-500 flex items-center gap-1">
@@ -146,9 +153,6 @@ export const TelebirrPlanSelectionModal: React.FC<TelebirrPlanSelectionModalProp
                           {plan.name}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
-                        {plan.durationLabel}
-                      </p>
                     </div>
                   </div>
 

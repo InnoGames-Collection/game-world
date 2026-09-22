@@ -36,8 +36,7 @@ import {
   ChevronRight, 
   Sparkles, 
   Volume2, 
-  VolumeX,
-  Plus
+  VolumeX
 } from 'lucide-react';
 import { GamesContentPage } from './content/GamesContentPage';
 import { PricingPage } from './content/PricingPage';
@@ -292,16 +291,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
             </div>
           </div>
-
-          <button
-            id="profile-top-up-btn"
-            type="button"
-            onClick={onOpenBuyCoins}
-            className="px-3.5 py-2 rounded-full bg-[#8BCB3D] hover:bg-[#7cb934] text-white text-xs font-black flex items-center gap-1 shadow-sm transition-transform active:scale-95 cursor-pointer shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Top Up</span>
-          </button>
         </div>
       </div>
 

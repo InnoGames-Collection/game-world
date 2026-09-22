@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { UserProfile } from '../types';
-import { Menu, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { GoPlayLogo } from './GoPlayLogo';
 
 interface HeaderProps {
@@ -22,7 +22,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   profile,
   onOpenBuyCoins,
-  onOpenMenu,
 }) => {
   const coinsCount = profile?.coins ?? 50;
 
@@ -30,20 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-40 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.04)] select-none">
       <div className="max-w-md md:max-w-xl lg:max-w-3xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2 min-h-[58px]">
         
-        {/* 1. LEFT: Menu button & telebirr Mini-App Brand Indicator */}
+        {/* 1. LEFT: telebirr Mini-App Brand Indicator */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {onOpenMenu && (
-            <button
-              id="header-main-menu-btn"
-              type="button"
-              onClick={onOpenMenu}
-              aria-label="Open GoPlay Menu"
-              className="p-1.5 rounded-xl text-[#17202A] hover:bg-slate-100 active:scale-95 transition-colors cursor-pointer"
-              title="Menu"
-            >
-              <Menu className="w-5 h-5 stroke-[2.2]" />
-            </button>
-          )}
 
           {/* telebirr mini-app badge */}
           <div 
