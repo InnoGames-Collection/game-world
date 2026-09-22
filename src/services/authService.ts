@@ -1,12 +1,11 @@
 /**
- * EthioTelecom Authentication Service (Enterprise Edition)
- * Supports Mobile Station International Subscriber Directory Number (MSISDN) login,
- * SMS OTP verification, pluggable authentication adapters, and TeleBirr Direct Connect.
+ * telebirr Game Center Authentication Service
+ * Authenticates players directly via telebirr Game Center credentials
  */
 
 import { UserProfile } from "../types";
 import { StorageService } from "./storageService";
-import { appConfig } from "../config/appConfig";
+import { apiService } from "./apiService";
 import { createLogger } from "../utils/logger";
 
 const log = createLogger("AuthService");
@@ -17,16 +16,8 @@ export interface AuthResponse {
   profile?: UserProfile;
 }
 
-export interface RequestOtpResponse {
-  success: boolean;
-  message: string;
-  demoOtp: string;
-}
-
 export interface IAuthProvider {
-  requestOtp(phoneNumber: string): Promise<RequestOtpResponse>;
-  verifyOtp(phoneNumber: string, otp: string): Promise<AuthResponse>;
-  loginWithTeleBirr(): Promise<AuthResponse>;
+  loginWithTeleBirr(phoneNumber?: string, token?: string): Promise<AuthResponse>;
   signOut(): UserProfile;
 }
 
@@ -56,119 +47,58 @@ export function normalizeEthiopianPhone(phone: string): { isValid: boolean; norm
 }
 
 /**
- * Default Simulated Auth Provider with configuration-aware demo OTP gating
+ * Production TeleBirr Game Center Auth Provider
+ * Connects directly to backend API and PostgreSQL
  */
-class SimulatedAuthProvider implements IAuthProvider {
-  async requestOtp(phoneNumber: string): Promise<RequestOtpResponse> {
-    const { isValid, normalized } = normalizeEthiopianPhone(phoneNumber);
-    if (!isValid) {
-      log.warn(`Invalid Ethiopian phone number provided: ${phoneNumber}`);
+class TelebirrAuthProvider implements IAuthProvider {
+  async loginWithTeleBirr(phoneNumber?: string, token?: string): Promise<AuthResponse> {
+    log.info(`Authenticating with TeleBirr Game Center: ${phoneNumber || 'Webview Handshake'}`);
+    
+    // Call real backend API
+    const profile = await apiService.loginWithTelebirr(phoneNumber, token);
+
+    if (profile) {
+      StorageService.saveProfile(profile);
+      log.info(`Player authenticated via telebirr: ${profile.displayName} (${profile.phoneNumber})`);
       return {
-        success: false,
-        message: "Please enter a valid EthioTelecom phone number starting with 09 or 07.",
-        demoOtp: "",
+        success: true,
+        message: 'Successfully authenticated with telebirr Game Center.',
+        profile,
       };
     }
 
-    const demoOtp = appConfig.isDemoMode ? appConfig.demoOtp : "";
-    const msg = appConfig.isDemoMode
-      ? `SMS Verification code sent to ${normalized}. [Demo OTP: ${demoOtp}]`
-      : `SMS Verification code sent to ${normalized}.`;
-
-    log.info(`OTP requested for ${normalized}`);
-
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          message: msg,
-          demoOtp,
-        });
-      }, 400);
-    });
-  }
-
-  async verifyOtp(phoneNumber: string, otp: string): Promise<AuthResponse> {
-    const trimmedOtp = otp.trim();
-    const { normalized } = normalizeEthiopianPhone(phoneNumber);
-
-    const isMatch = appConfig.isDemoMode
-      ? trimmedOtp === appConfig.demoOtp || trimmedOtp === "123456"
-      : trimmedOtp.length === 6;
-
-    if (!isMatch) {
-      log.warn(`OTP verification failed for ${phoneNumber}`);
+    // Fallback: If network offline, read cached profile
+    const existing = StorageService.getProfile();
+    if (existing && existing.isRegistered) {
       return {
-        success: false,
-        message: appConfig.isDemoMode
-          ? `Invalid 6-digit verification code. Please use demo code ${appConfig.demoOtp}.`
-          : "Invalid 6-digit verification code. Please check your SMS and try again.",
+        success: true,
+        message: 'Operating with cached telebirr session.',
+        profile: existing,
       };
     }
 
-    const current = StorageService.getProfile();
-    const updated: UserProfile = {
-      ...current,
-      phoneNumber: normalized || "0912345678",
-      isRegistered: true,
-      telebirrLinked: true,
-    };
-
-    StorageService.saveProfile(updated);
-    log.info(`User ${updated.id} successfully authenticated with ${updated.phoneNumber}`);
-
     return {
-      success: true,
-      message: "Successfully authenticated with EthioTelecom.",
-      profile: updated,
-    };
-  }
-
-  async loginWithTeleBirr(): Promise<AuthResponse> {
-    const current = StorageService.getProfile();
-    const updated: UserProfile = {
-      ...current,
-      phoneNumber: current.phoneNumber || "0911428890",
-      displayName: current.displayName || "EthioTelecom Gamer",
-      isRegistered: true,
-      telebirrLinked: true,
-      telebirrBalance: Math.max(current.telebirrBalance, 250),
-    };
-
-    StorageService.saveProfile(updated);
-    log.info(`User authenticated via TeleBirr Direct Connect: ${updated.id}`);
-
-    return {
-      success: true,
-      message: "Connected with TeleBirr SuperApp successfully.",
-      profile: updated,
+      success: false,
+      message: 'Failed to authenticate with telebirr Game Center. Please reload.',
     };
   }
 
   signOut(): UserProfile {
-    log.info("User signed out");
+    log.info("Player signed out");
+    apiService.clearToken();
     return StorageService.clearSession();
   }
 }
 
-// Active provider instance (pluggable for live production Telebirr REST API)
-let activeProvider: IAuthProvider = new SimulatedAuthProvider();
+let activeProvider: IAuthProvider = new TelebirrAuthProvider();
 
 export const AuthService = {
   setProvider(provider: IAuthProvider): void {
     activeProvider = provider;
   },
 
-  requestOtp(phoneNumber: string): Promise<RequestOtpResponse> {
-    return activeProvider.requestOtp(phoneNumber);
-  },
-
-  verifyOtp(phoneNumber: string, otp: string): Promise<AuthResponse> {
-    return activeProvider.verifyOtp(phoneNumber, otp);
-  },
-
-  loginWithTeleBirr(): Promise<AuthResponse> {
-    return activeProvider.loginWithTeleBirr();
+  loginWithTeleBirr(phoneNumber?: string, token?: string): Promise<AuthResponse> {
+    return activeProvider.loginWithTeleBirr(phoneNumber, token);
   },
 
   signOut(): UserProfile {

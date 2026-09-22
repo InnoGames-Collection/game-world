@@ -42,39 +42,20 @@ export const EntitlementService = {
     game: CatalogGame,
     profile?: UserProfile
   ): { hasAccess: boolean; entitlement?: GameEntitlement; isExpired?: boolean } {
-    // 0. Candy Crush and Word Legend are completely free with zero coin requirement
-    if (game.gameId === 'candy-blast' || game.gameId === 'world-legends') {
+    const TOURNAMENT_GAMES = ['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'];
+    const isTournament = TOURNAMENT_GAMES.includes(game.gameId);
+
+    // All catalog games other than the 4 tournament games are 100% FREE!
+    if (!isTournament) {
       return { hasAccess: true };
     }
 
-    // 1. FREE games always have instant access
-    if (game.isFree || game.accessType === 'FREE' || !game.requiresCoins) {
+    // For tournament games, check if player has at least 2 coins
+    if (profile && profile.coins >= 2) {
       return { hasAccess: true };
     }
 
-    // 2. Global active All-Access subscription covers all games
-    if (profile?.subscription?.isActive) {
-      if (!profile.subscription.expiresAt || profile.subscription.expiresAt > Date.now()) {
-        return { hasAccess: true };
-      }
-    }
-
-    const entitlements = this.getEntitlements();
-    const existing = entitlements[game.gameId];
-
-    if (!existing) {
-      return { hasAccess: false };
-    }
-
-    // 3. Check expiration for subscription or timed passes
-    if (existing.expiresAt) {
-      const now = Date.now();
-      if (now > existing.expiresAt) {
-        return { hasAccess: false, isExpired: true, entitlement: existing };
-      }
-    }
-
-    return { hasAccess: true, entitlement: existing };
+    return { hasAccess: false };
   },
 
   /**

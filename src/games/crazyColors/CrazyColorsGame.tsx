@@ -3,7 +3,7 @@
  * 40 Progressive Levels, authentic Web Audio, state machine, and persistent local storage.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { GameState, CrazyColorsSaveData, LevelScoreBreakdown, computeTotalCompetitiveScore } from './types';
 import { STORAGE_KEY } from './constants';
 import { CRAZY_COLORS_LEVELS } from './levels';
@@ -21,6 +21,8 @@ import { getGameConfig } from '../../components/gameNavigation/gameConfigs';
 
 interface CrazyColorsGameProps {
   onExit: () => void;
+  onGameOver?: (score: number, durationSeconds: number) => void;
+  onRequestSessionStart?: () => boolean;
 }
 
 const DEFAULT_SAVE_DATA: CrazyColorsSaveData = {
@@ -32,7 +34,11 @@ const DEFAULT_SAVE_DATA: CrazyColorsSaveData = {
   musicEnabled: true,
 };
 
-export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
+export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ 
+  onExit,
+  onGameOver,
+  onRequestSessionStart,
+}) => {
   // Load saved progress from localStorage
   const [saveData, setSaveData] = useState<CrazyColorsSaveData>(() => {
     if (typeof window !== 'undefined') {
@@ -62,6 +68,9 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
   const [scoreBreakdown, setScoreBreakdown] = useState<LevelScoreBreakdown | undefined>(undefined);
   const [starsEarnedThisRound, setStarsEarnedThisRound] = useState<number>(1);
   const [keyCounter, setKeyCounter] = useState<number>(0); // force canvas re-mount on restart
+
+  const isInitialSession = useRef<boolean>(true);
+  const sessionStartTime = useRef<number>(Date.now());
 
   // Sync sound settings with audio engine
   useEffect(() => {
@@ -100,19 +109,31 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
     return saveData.totalCompetitiveScore ?? computeTotalCompetitiveScore(saveData.bestScores);
   }, [saveData.totalCompetitiveScore, saveData.bestScores]);
 
-  // Start specific level
+  // Start specific level (deducts 2 tournament coins on replay/retry/new session)
   const handleStartLevel = useCallback((levelId: number) => {
+    if (isInitialSession.current) {
+      isInitialSession.current = false;
+    } else if (onRequestSessionStart) {
+      if (!onRequestSessionStart()) {
+        return;
+      }
+    }
+
+    sessionStartTime.current = Date.now();
     setCurrentLevelId(levelId);
     setScore(0);
     setScoreBreakdown(undefined);
     setKeyCounter((k) => k + 1);
     setGameState('PLAYING');
-  }, []);
+  }, [onRequestSessionStart]);
 
   // Handle Game Over
   const handleGameOver = useCallback(
     (finalScore: number) => {
       setScore(finalScore);
+      const duration = Math.max(1, Math.round((Date.now() - sessionStartTime.current) / 1000));
+      onGameOver?.(finalScore, duration);
+
       updateAndPersistSaveData((prev) => {
         const prevBest = prev.bestScores[currentLevelId] || 0;
         const updatedBest = Math.max(prevBest, finalScore);
@@ -128,7 +149,7 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
       });
       setGameState('GAME_OVER');
     },
-    [currentLevelId, updateAndPersistSaveData]
+    [currentLevelId, onGameOver, updateAndPersistSaveData]
   );
 
   // Handle Level Complete
@@ -136,6 +157,8 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
     (finalScore: number, breakdown?: LevelScoreBreakdown) => {
       setScore(finalScore);
       setScoreBreakdown(breakdown);
+      const duration = Math.max(1, Math.round((Date.now() - sessionStartTime.current) / 1000));
+      onGameOver?.(finalScore, duration);
 
       // Calculate 1-5 stars from level thresholds
       const thresholds = currentLevelDef.starThresholds;
@@ -170,7 +193,7 @@ export const CrazyColorsGame: React.FC<CrazyColorsGameProps> = ({ onExit }) => {
 
       setGameState('LEVEL_COMPLETE');
     },
-    [currentLevelDef, currentLevelId, updateAndPersistSaveData]
+    [currentLevelDef, currentLevelId, onGameOver, updateAndPersistSaveData]
   );
 
   return (

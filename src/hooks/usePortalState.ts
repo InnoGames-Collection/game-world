@@ -103,6 +103,7 @@ export function usePortalState() {
     activeTournamentId,
     lastGameSessionResult,
     launchGame,
+    requestSessionStart,
     handleGameFinished,
     closeGameLauncher,
   } = useGameLauncher({
@@ -134,6 +135,7 @@ export function usePortalState() {
     activeTournamentId,
     lastGameSessionResult,
     launchGame,
+    requestSessionStart,
     closeGameLauncher,
     handleGameFinished,
 

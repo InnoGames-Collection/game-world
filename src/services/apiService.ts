@@ -30,6 +30,13 @@ class ApiService {
     return this.token;
   }
 
+  clearToken() {
+    this.token = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('goplay_access_token');
+    }
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T | null> {
     try {
       const headers: Record<string, string> = {
@@ -60,16 +67,16 @@ class ApiService {
   }
 
   /**
-   * Authenticate via Telebirr SuperApp SSO and load real PostgreSQL UserProfile
+   * Authenticate via Telebirr Game Center and load real PostgreSQL UserProfile
    */
-  async loginWithTelebirr(phoneNumber?: string): Promise<UserProfile | null> {
+  async loginWithTelebirr(phoneNumber?: string, token?: string): Promise<UserProfile | null> {
     const res = await this.request<{
       success: boolean;
       profile: UserProfile;
       tokens?: { accessToken: string; refreshToken: string };
     }>('/auth/telebirr-login', {
       method: 'POST',
-      body: JSON.stringify({ phoneNumber }),
+      body: JSON.stringify({ phoneNumber, token }),
     });
 
     if (res?.success && res.profile) {
@@ -86,6 +93,10 @@ class ApiService {
    * Fetch current authenticated profile from PostgreSQL
    */
   async getProfile(): Promise<UserProfile | null> {
+    const res = await this.request<{ success: boolean; profile: UserProfile }>('/auth/me');
+    if (res?.success && res.profile) {
+      return res.profile;
+    }
     return this.request<UserProfile>('/profile');
   }
 
@@ -118,6 +129,15 @@ class ApiService {
   }
 
   /**
+   * Enter a tournament (deducts 2 coins on backend, grants tournament play attempt)
+   */
+  async enterTournament(tournamentId: string): Promise<{ success: boolean; message: string; attemptsLeft: number } | null> {
+    return this.request<{ success: boolean; message: string; attemptsLeft: number }>(`/tournaments/${tournamentId}/enter`, {
+      method: 'POST',
+    });
+  }
+
+  /**
    * Submit authoritative game score with anti-cheat round token
    */
   async submitScore(
@@ -125,56 +145,78 @@ class ApiService {
     rawScore: number,
     durationSeconds: number,
     tournamentId?: string
-  ): Promise<{ success: boolean; score?: number; message?: string } | null> {
+  ): Promise<{ success: boolean; score?: number; message?: string; updatedProfile?: UserProfile } | null> {
     // 1. Request server round token
     const sessionRes = await this.request<{ token: string }>('/game/session/start', {
       method: 'POST',
       body: JSON.stringify({ gameId, tournamentId }),
     });
 
-    const token = sessionRes?.token || 'client_auth_' + Date.now().toString(36);
+    if (!sessionRes?.token) {
+      console.error('[ApiService] Failed to obtain authoritative game session token from server');
+      return null;
+    }
 
-    // 2. Submit validated score
-    return this.request<{ success: boolean; score?: number; message?: string }>('/game/session/submit', {
-      method: 'POST',
-      body: JSON.stringify({
-        gameId,
-        rawScore,
-        durationSeconds: Math.max(durationSeconds, 5),
-        token,
-        tournamentId,
-      }),
-    });
+    // 2. Submit validated score with server token
+    return this.request<{ success: boolean; score?: number; message?: string; updatedProfile?: UserProfile }>(
+      '/game/session/submit',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          gameId,
+          rawScore,
+          durationSeconds: Math.max(durationSeconds, 2),
+          token: sessionRes.token,
+          tournamentId,
+        }),
+      }
+    );
   }
 
   /**
-   * Purchase GoPlay Coins via telebirr billing in PostgreSQL
+   * Purchase GoPlay Coins via Telebirr (10 coins for 10 ETB, 30 for 30 ETB, 50 for 50 ETB)
    */
-  async buyCoins(coins: number, amountETB: number): Promise<boolean> {
-    const res = await this.request<{ status: string }>('/payments/process', {
+  async buyCoins(packageId: 'COIN_PACK_10' | 'COIN_PACK_30' | 'COIN_PACK_50' = 'COIN_PACK_10'): Promise<{ success: boolean; checkoutUrl?: string; message?: string }> {
+    const res = await this.request<{
+      status: string;
+      checkoutUrl?: string;
+      message: string;
+    }>('/payments/process', {
       method: 'POST',
       body: JSON.stringify({
-        method: 'TELEBIRR',
-        amountETB,
+        packageId,
         itemType: 'COIN_PACK',
-        itemTitle: `${coins} GoPlay Coins`,
-        coinsReward: coins,
       }),
     });
 
-    return res?.status === 'SUCCESS' || res?.status === 'PENDING';
+    return {
+      success: res?.status === 'SUCCESS' || res?.status === 'PENDING',
+      checkoutUrl: res?.checkoutUrl,
+      message: res?.message,
+    };
   }
 
   /**
-   * Activate VIP On-Demand Subscription in PostgreSQL subscriptions table
+   * Activate VIP On-Demand Subscription via Telebirr (Daily 10 ETB, Weekly 25 ETB, Monthly 50 ETB)
    */
-  async activateSubscription(plan: 'daily' | 'weekly' | 'monthly'): Promise<boolean> {
-    const res = await this.request<{ success: boolean }>('/subscriptions/subscribe', {
+  async activateSubscription(plan: 'daily' | 'weekly' | 'monthly'): Promise<{ success: boolean; checkoutUrl?: string; message?: string }> {
+    const res = await this.request<{
+      status: string;
+      checkoutUrl?: string;
+      message: string;
+    }>('/payments/process', {
       method: 'POST',
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify({
+        itemType: 'VIP_SUBSCRIPTION',
+        plan,
+      }),
     });
 
-    return Boolean(res?.success);
+    return {
+      success: res?.status === 'SUCCESS' || res?.status === 'PENDING',
+      checkoutUrl: res?.checkoutUrl,
+      message: res?.message,
+    };
   }
 }
 

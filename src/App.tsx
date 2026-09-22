@@ -44,6 +44,8 @@ import { PricingPage } from './pages/content/PricingPage';
 import { TermsPage } from './pages/content/TermsPage';
 import { PrivacyPage } from './pages/content/PrivacyPage';
 import { StorageService } from './services/storageService';
+import { AuthService } from './services/authService';
+import { apiService } from './services/apiService';
 
 export default function App() {
   const {
@@ -56,6 +58,7 @@ export default function App() {
     // Game Launcher State
     activeGameToLaunch,
     launchGame,
+    requestSessionStart,
     closeGameLauncher,
     handleGameFinished,
     lastGameSessionResult,
@@ -92,8 +95,26 @@ export default function App() {
   useEffect(() => {
     // Check if entered from telebirr or initial session or admin tab
     const params = new URLSearchParams(window.location.search);
+    const msisdnParam = params.get('msisdn') || params.get('phone');
+    const tokenParam = params.get('token');
     const hasTelebirrParams = params.has('msisdn') || params.has('token') || params.has('from');
     
+    if (msisdnParam) {
+      AuthService.loginWithTeleBirr(msisdnParam, tokenParam || undefined).then((res) => {
+        if (res.profile) {
+          setProfile(res.profile);
+        }
+      });
+    } else {
+      // Sync with real backend profile
+      apiService.getProfile().then((backendProfile) => {
+        if (backendProfile) {
+          setProfile(backendProfile);
+          StorageService.saveProfile(backendProfile);
+        }
+      });
+    }
+
     if (hasTelebirrParams || !sessionStorage.getItem('telebirr_handshake_seen')) {
       setIsHandshakeOpen(true);
       sessionStorage.setItem('telebirr_handshake_seen', 'true');
@@ -265,31 +286,50 @@ export default function App() {
     return acc;
   }, {} as Record<string, boolean>);
 
+  const TOURNAMENT_GAMES = ['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'];
+
   /**
    * Centralized Game Play Controller:
-   * 1. Free games (Candy Blast, World Legends, etc.) -> instant launch!
-   * 2. Active on-demand subscription pass -> instant launch!
-   * 3. Expired subscription pass or unsubscribed -> open Telebirr Plan Selection Modal!
+   * 1. All catalog games are 100% FREE!
+   * 2. The 4 tournament games require 2 coins to play (10 ETB pack = 10 coins = 5 plays).
    */
   const handlePlayGame = (game: GameDefinition) => {
     setIsMainMenuOpen(false);
     setSelectedGameForDetails(null);
     setPendingAccessGame(null);
 
-    const isFree = game.id === 'candy-blast' || game.id === 'world-legends' || game.isFree;
+    // 1. Mandatory Plan Gating:
+    // User must have an active subscription plan (daily, weekly, or monthly) to access games.
+    // Coins persist intact even if the plan expires, but a plan is required to play.
+    if (!isSubscriptionValid()) {
+      if (profile.subscription?.expiresAt && Date.now() >= profile.subscription.expiresAt) {
+        showToast('info', 'Your pass has expired. Select a daily, weekly, or monthly plan to play (your coin balance remains intact)!', 'Pass Expired');
+      } else {
+        showToast('info', 'An active plan is required to access games. Select a plan to start playing!', 'Plan Required');
+      }
+      openOverlay('plan_selection', () => setIsPlanModalOpen(true));
+      return;
+    }
 
-    if (isFree || isSubscriptionValid()) {
+    const isTournament = TOURNAMENT_GAMES.includes(game.id);
+
+    // Free Games (All non-tournament games are free under the active plan)
+    if (!isTournament) {
       EntitlementService.recordGamePlayed(game.id);
       openOverlay(`game_${game.id}`, () => launchGame(game));
       return;
     }
 
-    // Pass expired or not active -> prompt telebirr on-demand plan selection (Screenshot 6)
-    if (profile.subscription?.expiresAt && Date.now() >= profile.subscription.expiresAt) {
-      showToast('info', 'Your 24-hour pass has expired. Select a plan to continue.', 'Pass Expired');
+    // Tournament Games: requires 2 coins
+    if (profile.coins >= 2) {
+      EntitlementService.recordGamePlayed(game.id);
+      openOverlay(`game_${game.id}`, () => launchGame(game));
+      return;
     }
 
-    openOverlay('plan_selection', () => setIsPlanModalOpen(true));
+    // Insufficient coins for tournament match
+    showToast('info', 'Tournament matches require 2 coins. Top up coins via telebirr to play!', 'Coins Required');
+    openOverlay('coin_topup', () => setIsCoinTopupOpen(true));
   };
 
   const handleAccessGranted = (updatedProfile: typeof profile, gameToPlay: CatalogGame) => {
@@ -662,6 +702,8 @@ export default function App() {
             lastResult={lastGameSessionResult}
             onClose={handleCloseGameLauncher}
             onGameOver={handleGameFinished}
+            onRequestSessionStart={() => requestSessionStart(activeGameToLaunch)}
+            onRequireCoins={handleOpenCoinTopup}
             onPlayAgain={() => {
               const currentGame = activeGameToLaunch;
               handleCloseGameLauncher();

@@ -5,11 +5,42 @@
  */
 
 import { UserProfile, LanguageCode, EnergyTransaction, PaymentTransaction } from "../types";
-import { DEMO_USER_PROFILE } from "./demoData";
 import { appConfig } from "../config/appConfig";
 import { createLogger } from "../utils/logger";
 
 const log = createLogger("StorageService");
+
+const DEFAULT_INITIAL_PROFILE: UserProfile = {
+  id: 'usr_guest',
+  phoneNumber: '',
+  displayName: 'telebirr Player',
+  avatarId: 'avatar_runner',
+  isRegistered: false,
+  telebirrLinked: false,
+  telebirrBalance: 0,
+  coins: 0,
+  xp: 0,
+  level: 1,
+  energy: 5,
+  maxEnergy: 5,
+  lastEnergyRefillTimestamp: Date.now(),
+  hasReceivedInitialCoins: false,
+  subscription: {
+    plan: 'free',
+    isActive: false,
+    autoRenew: false,
+  },
+  streak: {
+    current: 1,
+    lastClaimedDate: '',
+    hasClaimedToday: false,
+  },
+  highScores: {},
+  dailyScores: {},
+  achievements: [],
+  matchesPlayed: 0,
+  trophiesCount: 0,
+};
 
 export const STORAGE_KEYS = {
   PROFILE: "teleplay_ethio_profile_v1",
@@ -159,19 +190,19 @@ export const StorageService = {
     try {
       const stored = safeStorage.getItem(STORAGE_KEYS.PROFILE);
       if (!stored) {
-        this.saveProfile(DEMO_USER_PROFILE);
-        return DEMO_USER_PROFILE;
+        this.saveProfile(DEFAULT_INITIAL_PROFILE);
+        return DEFAULT_INITIAL_PROFILE;
       }
       const parsed: UserProfile = JSON.parse(stored);
       if (!parsed || typeof parsed !== "object" || !parsed.id) {
         log.warn("Corrupted profile data encountered. Resetting to initial profile.");
-        this.saveProfile(DEMO_USER_PROFILE);
-        return DEMO_USER_PROFILE;
+        this.saveProfile(DEFAULT_INITIAL_PROFILE);
+        return DEFAULT_INITIAL_PROFILE;
       }
       return this.recalculateEnergy(parsed);
     } catch (e) {
       log.error("Error reading profile, returning fallback:", e);
-      return DEMO_USER_PROFILE;
+      return DEFAULT_INITIAL_PROFILE;
     }
   },
 
@@ -311,10 +342,10 @@ export const StorageService = {
   resetDemoState(): UserProfile {
     try {
       safeStorage.removeItem(STORAGE_KEYS.PROFILE);
-      this.saveProfile(DEMO_USER_PROFILE);
-      return DEMO_USER_PROFILE;
+      this.saveProfile(DEFAULT_INITIAL_PROFILE);
+      return DEFAULT_INITIAL_PROFILE;
     } catch {
-      return DEMO_USER_PROFILE;
+      return DEFAULT_INITIAL_PROFILE;
     }
   },
 
@@ -432,10 +463,10 @@ export const StorageService = {
   wipeAllData(): UserProfile {
     try {
       safeStorage.clear();
-      this.saveProfile(DEMO_USER_PROFILE);
-      return DEMO_USER_PROFILE;
+      this.saveProfile(DEFAULT_INITIAL_PROFILE);
+      return DEFAULT_INITIAL_PROFILE;
     } catch {
-      return DEMO_USER_PROFILE;
+      return DEFAULT_INITIAL_PROFILE;
     }
   },
 };

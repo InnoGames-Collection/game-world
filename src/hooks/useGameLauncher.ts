@@ -49,10 +49,11 @@ export function useGameLauncher({
       const { updatedProfile } = GameBridgeService.deductCoinsForLaunch(game, profile);
       setProfile(updatedProfile);
 
+      const isTournament = ['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'].includes(game.id);
       const tx: EnergyTransaction = {
         transactionId: "CTX_PLAY_" + Date.now().toString(36).toUpperCase(),
         type: "GAME_CONSUMPTION",
-        amount: -(game.entryCostCoins || 10),
+        amount: isTournament ? -2 : 0,
         timestamp: new Date().toISOString(),
         status: "COMPLETED",
         details: `Match Entry: ${game.title}`,
@@ -67,11 +68,55 @@ export function useGameLauncher({
     [profile, setProfile, showToast, setIsAuthModalOpen, setIsEnergyModalOpen, setIsSubscriptionModalOpen, refreshEnergyTransactions]
   );
 
+  /**
+   * Request a new play session / try-again / restart inside an active game.
+   * Free games return true immediately. Tournament games require and deduct 2 coins.
+   */
+  const requestSessionStart = useCallback(
+    (game: GameDefinition): boolean => {
+      const isTournament = ['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'].includes(game.id);
+      if (!isTournament) {
+        return true;
+      }
+
+      if ((profile.coins || 0) < 2) {
+        setIsEnergyModalOpen(true);
+        showToast(
+          "warning",
+          "Coins Required",
+          `Tournament play / retry requires 2 Coins. Current balance: ${profile.coins || 0} Coins.`
+        );
+        return false;
+      }
+
+      const updated: UserProfile = {
+        ...profile,
+        coins: Math.max(0, (profile.coins || 0) - 2),
+        matchesPlayed: (profile.matchesPlayed || 0) + 1,
+      };
+      StorageService.saveProfile(updated);
+      setProfile(updated);
+
+      const tx: EnergyTransaction = {
+        transactionId: "CTX_REPLAY_" + Date.now().toString(36).toUpperCase(),
+        type: "GAME_CONSUMPTION",
+        amount: -2,
+        timestamp: new Date().toISOString(),
+        status: "COMPLETED",
+        details: `Tournament Replay: ${game.title}`,
+      };
+      StorageService.recordEnergyTransaction(tx);
+      refreshEnergyTransactions();
+      return true;
+    },
+    [profile, setProfile, showToast, setIsEnergyModalOpen, refreshEnergyTransactions]
+  );
+
   const handleGameFinished = useCallback(
-    (finalScore: number, durationSeconds: number) => {
+    async (finalScore: number, durationSeconds: number) => {
       if (!activeGameToLaunch) return;
 
-      const { result, updatedProfile, transaction } = GameBridgeService.submitScore(
+      const { result, updatedProfile, transaction } = await GameBridgeService.submitScore(
         activeGameToLaunch.id,
         finalScore,
         durationSeconds,
@@ -81,14 +126,6 @@ export function useGameLauncher({
 
       setProfile(updatedProfile);
       setLastGameSessionResult(result);
-
-      // Synchronize score authoritative verification with live PostgreSQL database
-      apiService.submitScore(
-        activeGameToLaunch.id,
-        finalScore,
-        durationSeconds,
-        activeTournamentId
-      ).catch(() => null);
 
       if (transaction) {
         showToast(
@@ -103,7 +140,8 @@ export function useGameLauncher({
           `You set a new personal record of ${result.score.toLocaleString()} in ${activeGameToLaunch.title}!`
         );
       } else {
-        showToast("info", "Match Completed", `Earned +${result.coinsEarned} Coins and +${result.xpEarned} XP!`);
+        const gold = result.goldEarned ?? Math.floor(result.score / 2);
+        showToast("info", "Match Completed", `Earned +${gold} Gold and +${result.xpEarned} XP!`);
       }
     },
     [activeGameToLaunch, activeTournamentId, profile, setProfile, showToast]
@@ -120,6 +158,7 @@ export function useGameLauncher({
     activeTournamentId,
     lastGameSessionResult,
     launchGame,
+    requestSessionStart,
     handleGameFinished,
     closeGameLauncher,
   };

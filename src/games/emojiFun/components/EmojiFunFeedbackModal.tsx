@@ -217,7 +217,7 @@ export const EmojiFunFeedbackModal: React.FC<EmojiFunFeedbackModalProps> = ({
             <div className="w-full bg-white/20 backdrop-blur-md rounded-2xl p-3 my-2 border border-white/40 space-y-1.5 text-xs sm:text-sm">
               <div className="flex items-center justify-between bg-white/20 px-3 py-1.5 rounded-xl font-bold">
                 <span className="flex items-center gap-1.5">
-                  <Coins className="w-4 h-4 text-amber-300" /> Coins Earned
+                  <Coins className="w-4 h-4 text-amber-300" /> Gold Earned
                 </span>
                 <span className="font-mono text-amber-300 font-black">+{coinsEarned}</span>
               </div>

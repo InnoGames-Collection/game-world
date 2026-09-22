@@ -30,6 +30,7 @@ interface FruitSliceGameProps {
   profile?: UserProfile;
   onGameOver: (finalScore: number, durationSeconds: number) => void;
   onExit: () => void;
+  onRequestSessionStart?: () => boolean;
   isAudioEnabled?: boolean;
 }
 
@@ -41,6 +42,7 @@ export const FruitSliceGame: React.FC<FruitSliceGameProps> = ({
   profile,
   onGameOver,
   onExit,
+  onRequestSessionStart,
   isAudioEnabled = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -86,6 +88,8 @@ export const FruitSliceGame: React.FC<FruitSliceGameProps> = ({
   const [levelStartTime, setLevelStartTime] = useState<number>(0);
   const [finalDuration, setFinalDuration] = useState<number>(0);
   const [isBombFail, setIsBombFail] = useState<boolean>(false);
+
+  const isInitialSession = useRef<boolean>(true);
 
   // Sync Audio Mute
   useEffect(() => {
@@ -142,9 +146,17 @@ export const FruitSliceGame: React.FC<FruitSliceGameProps> = ({
     []
   );
 
-  // Start Level Engine
+  // Start Level Engine (deducts 2 tournament coins on replay/retry/new session)
   const startLevel = useCallback(
     (levelNum: number) => {
+      if (isInitialSession.current) {
+        isInitialSession.current = false;
+      } else if (onRequestSessionStart) {
+        if (!onRequestSessionStart()) {
+          return;
+        }
+      }
+
       setCurrentLevelNum(levelNum);
       setGameStatus('playing');
       setScore(0);
@@ -191,12 +203,14 @@ export const FruitSliceGame: React.FC<FruitSliceGameProps> = ({
             setGameStatus('game_over');
             const duration = Math.round((Date.now() - levelStartTime) / 1000);
             setFinalDuration(duration);
+            onGameOver(score, duration);
           },
           onLevelComplete: (finalSc) => {
             setScore(finalSc);
             const duration = Math.round((Date.now() - levelStartTime) / 1000);
             setFinalDuration(duration);
             setGameStatus('level_complete');
+            onGameOver(finalSc, duration);
 
             // Calculate stars (1-3 stars)
             const quota = lvlCfg.quota;
@@ -208,6 +222,7 @@ export const FruitSliceGame: React.FC<FruitSliceGameProps> = ({
             const duration = Math.round((Date.now() - levelStartTime) / 1000);
             setFinalDuration(duration);
             setGameStatus('game_over');
+            onGameOver(finalSc, duration);
           },
         },
         initialDeflects
@@ -216,7 +231,7 @@ export const FruitSliceGame: React.FC<FruitSliceGameProps> = ({
       engineRef.current = engine;
       engine.start();
     },
-    [levelStartTime, saveProgress]
+    [levelStartTime, onGameOver, onRequestSessionStart, saveProgress, score]
   );
 
   // Resize handler

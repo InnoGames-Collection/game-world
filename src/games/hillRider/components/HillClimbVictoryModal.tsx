@@ -92,7 +92,7 @@ export const HillClimbVictoryModal: React.FC<HillClimbVictoryModalProps> = ({
             </div>
             <div className="flex items-center justify-center gap-1 text-amber-300 font-mono font-bold">
               <Coins className="w-3.5 h-3.5 fill-amber-400" />
-              <span>+{coinsEarned} Coins</span>
+              <span>+{coinsEarned} Gold</span>
             </div>
           </div>
         </div>

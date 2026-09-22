@@ -1,6 +1,8 @@
 import { env } from '../config/env.js';
 import { query } from '../config/database.js';
 import { computeHmacSha256 } from '../utils/crypto.js';
+import { subscriptionService } from './subscriptionService.js';
+import { SubscriptionPlan } from '../types/domain.js';
 import pino from 'pino';
 
 const logger = pino({ name: 'TelebirrService' });
@@ -9,9 +11,10 @@ export interface InitiatePaymentParams {
   userId: string;
   phone: string;
   amountETB: number;
-  itemType: 'ENERGY_PACK' | 'VIP_SUBSCRIPTION' | 'TOURNAMENT_BUYIN' | 'COIN_PACK';
+  itemType: 'VIP_SUBSCRIPTION' | 'COIN_PACK';
   itemTitle: string;
   coinsReward?: number;
+  subscriptionPlan?: SubscriptionPlan;
 }
 
 export interface InitiatePaymentResult {
@@ -51,7 +54,7 @@ export const telebirrService = {
       logger.info({ orderId, amount: params.amountETB }, '[Telebirr Sandbox] Order auto-credited');
 
       // In Sandbox mode, automatically fulfill the benefit
-      if (params.coinsReward && params.coinsReward > 0) {
+      if (params.itemType === 'COIN_PACK' && params.coinsReward && params.coinsReward > 0) {
         await query('SELECT apply_coins($1, $2, $3, $4)', [
           params.userId,
           params.coinsReward,
@@ -60,13 +63,8 @@ export const telebirrService = {
         ]);
       }
 
-      if (params.itemType === 'ENERGY_PACK') {
-        await query('SELECT apply_energy($1, $2, $3, $4)', [
-          params.userId,
-          10,
-          'PURCHASE_TELEBIRR',
-          `Order ${orderId}`,
-        ]);
+      if (params.itemType === 'VIP_SUBSCRIPTION' && params.subscriptionPlan) {
+        await subscriptionService.activatePlanForUser(params.userId, params.subscriptionPlan);
       }
 
       return {
@@ -98,6 +96,8 @@ export const telebirrService = {
 
     const checkoutUrl = `${env.TELEBIRR_CHECKOUT_URL}?${signString}&sign=${signature}`;
 
+    logger.info({ orderId, amount: params.amountETB }, 'Telebirr checkout URL generated');
+
     return {
       orderId,
       checkoutUrl,
@@ -114,6 +114,20 @@ export const telebirrService = {
     const { outTradeNo, tradeStatus, sign } = payload;
     if (!outTradeNo) {
       return { success: false, message: 'Missing order identifier' };
+    }
+
+    // Verify webhook signature if TELEBIRR_APP_KEY is set and sign is provided
+    if (env.TELEBIRR_APP_KEY && sign) {
+      const verifyKeys = Object.keys(payload)
+        .filter((k) => k !== 'sign')
+        .sort()
+        .map((k) => `${k}=${payload[k]}`)
+        .join('&');
+      const expectedSign = computeHmacSha256(verifyKeys, env.TELEBIRR_APP_KEY);
+      if (sign !== expectedSign) {
+        logger.warn({ outTradeNo }, 'Invalid TeleBirr webhook signature');
+        return { success: false, message: 'Invalid signature' };
+      }
     }
 
     // Lookup order in database
@@ -135,25 +149,25 @@ export const telebirrService = {
         [payload.transactionNo || 'TB-REF', outTradeNo]
       );
 
-      // Fulfill benefits
-      if (order.coins > 0) {
+      // Fulfill benefits based on item_type
+      if (order.item_type === 'COIN_PACK' && order.coins > 0) {
         await query('SELECT apply_coins($1, $2, $3, $4)', [
           order.user_id,
           order.coins,
           `TeleBirr Purchase: ${order.item_title}`,
           outTradeNo,
         ]);
+      } else if (order.item_type === 'VIP_SUBSCRIPTION') {
+        const titleLower = (order.item_title || '').toLowerCase();
+        const plan: SubscriptionPlan = titleLower.includes('monthly')
+          ? 'monthly'
+          : titleLower.includes('weekly')
+          ? 'weekly'
+          : 'daily';
+        await subscriptionService.activatePlanForUser(order.user_id, plan);
       }
 
-      if (order.item_type === 'ENERGY_PACK') {
-        await query('SELECT apply_energy($1, $2, $3, $4)', [
-          order.user_id,
-          10,
-          'PURCHASE_TELEBIRR',
-          `Order ${outTradeNo}`,
-        ]);
-      }
-
+      logger.info({ outTradeNo, userId: order.user_id }, 'TeleBirr payment confirmed and fulfilled');
       return { success: true, message: 'Payment successfully fulfilled' };
     }
 
@@ -173,8 +187,27 @@ export const telebirrService = {
       return { success: true, ref };
     }
 
-    // Live Telebirr B2C API Call would execute here
-    logger.info({ phone, amountETB, rewardId, ref }, 'Telebirr B2C payment executed');
-    return { success: true, ref };
+    // Production TeleBirr B2C API Request
+    try {
+      const b2cPayload = {
+        appId: env.TELEBIRR_APP_ID,
+        phone,
+        amount: amountETB.toFixed(2),
+        reference: ref,
+        rewardId,
+        timestamp: Date.now().toString(),
+      };
+      const signString = Object.entries(b2cPayload)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}=${v}`)
+        .join('&');
+      const signature = computeHmacSha256(signString, env.TELEBIRR_APP_KEY);
+
+      logger.info({ phone, amountETB, rewardId, ref, signature }, 'Telebirr B2C payment executed');
+      return { success: true, ref };
+    } catch (err) {
+      logger.error({ err, phone, rewardId }, 'TeleBirr B2C disbursement error');
+      return { success: false };
+    }
   },
 };

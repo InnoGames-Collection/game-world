@@ -1,78 +1,97 @@
 /**
- * EthioTelecom Payment & Direct Carrier Billing Service
+ * telebirr Direct Checkout Payment Service
  * 
- * Provides clean architectural abstraction for:
- * 1. TeleBirr Direct SuperApp / Web checkout integration
- * 2. EthioTelecom Direct Airtime Carrier Billing
- * 3. USSD Carrier Billing (*999#)
- * 
- * Enforces accurate state transitions:
- * IDLE -> PROCESSING -> SUCCESS | FAILED | CANCELLED
- * 
- * Never fakes instant success without asynchronous carrier round-trip verification.
+ * Strictly handles telebirr integration for:
+ * 1. GoPlay Coin Pack Purchases (10 coins for 10 ETB)
+ * 2. VIP Subscription Passes (Daily 10 ETB, Weekly 25 ETB, Monthly 50 ETB)
  */
 
 import { 
-  PaymentMethod, 
   PaymentStatus, 
   PaymentTransaction, 
   UserProfile 
 } from '../types';
 import { maskPhoneNumber } from '../utils/formatters';
 import { StorageService } from './storageService';
+import { apiService } from './apiService';
 
 export interface PaymentRequest {
-  method: PaymentMethod;
+  method: 'TELEBIRR';
   amountETB: number;
-  itemType: 'ENERGY_PACK' | 'VIP_SUBSCRIPTION' | 'TOURNAMENT_BUYIN';
+  itemType: 'COIN_PACK' | 'VIP_SUBSCRIPTION';
   itemTitle: string;
-  userPin?: string;
+  coinsReward?: number;
+  packageId?: 'COIN_PACK_10' | 'COIN_PACK_30' | 'COIN_PACK_50';
+  plan?: 'daily' | 'weekly' | 'monthly';
 }
 
 export interface PaymentResult {
   status: PaymentStatus;
   transaction: PaymentTransaction;
   message: string;
+  checkoutUrl?: string;
 }
 
 export const PaymentService = {
   /**
-   * Process a payment with true asynchronous carrier lifecycle
+   * Process a payment via telebirr C2B checkout
    */
   async processPayment(
     profile: UserProfile,
     request: PaymentRequest,
     onStatusChange?: (status: PaymentStatus, stepMessage?: string) => void
   ): Promise<PaymentResult> {
-    const txId = 'TX_ETHIO_' + Date.now().toString(36).toUpperCase() + '_' + Math.floor(1000 + Math.random() * 9000);
+    const txId = 'TX_TB_' + Date.now().toString(36).toUpperCase() + '_' + Math.floor(1000 + Math.random() * 9000);
     const maskedPhone = maskPhoneNumber(profile.phoneNumber || '+251 91 000 0000');
 
     const tx: PaymentTransaction = {
       transactionId: txId,
-      method: request.method,
+      method: 'TELEBIRR',
       amountETB: request.amountETB,
-      itemType: request.itemType,
+      itemType: request.itemType === 'COIN_PACK' ? 'COIN_PACK' : 'VIP_SUBSCRIPTION',
       itemTitle: request.itemTitle,
       timestamp: new Date().toISOString(),
       status: 'PROCESSING',
       msisdnMasked: maskedPhone,
     };
 
-    // Step 1: Initial Processing Dispatch
-    onStatusChange?.('PROCESSING', 'Contacting EthioTelecom billing gateway...');
+    onStatusChange?.('PROCESSING', 'Connecting to telebirr payment gateway...');
 
-    // Carrier gateway latency simulation
-    await new Promise((r) => setTimeout(r, 600));
+    try {
+      let res: { success: boolean; checkoutUrl?: string; message?: string };
 
-    // Validation 1: TeleBirr linked / Balance check
-    if (request.method === 'TELEBIRR') {
-      onStatusChange?.('PROCESSING', 'Verifying TeleBirr account balance...');
-      await new Promise((r) => setTimeout(r, 500));
+      if (request.itemType === 'COIN_PACK') {
+        const pkg = request.packageId || (request.amountETB === 50 ? 'COIN_PACK_50' : request.amountETB === 30 ? 'COIN_PACK_30' : 'COIN_PACK_10');
+        res = await apiService.buyCoins(pkg);
+      } else {
+        res = await apiService.activateSubscription(request.plan || 'weekly');
+      }
 
-      if (profile.telebirrBalance < request.amountETB) {
+      if (res.success) {
+        tx.status = 'SUCCESS';
+        tx.referenceCode = 'REF_TB_' + Math.random().toString(36).substring(2, 9).toUpperCase();
+        
+        // If coins purchased, credit to profile immediately
+        if (request.itemType === 'COIN_PACK') {
+          const updatedProfile: UserProfile = {
+            ...profile,
+            coins: (profile.coins || 0) + 10,
+          };
+          StorageService.saveProfile(updatedProfile);
+        }
+
+        StorageService.recordPaymentTransaction(tx);
+        onStatusChange?.('SUCCESS', `Payment of ${request.amountETB} ETB confirmed!`);
+
+        return {
+          status: 'SUCCESS',
+          transaction: tx,
+          checkoutUrl: res.checkoutUrl,
+          message: res.message || `Payment of ${request.amountETB} ETB confirmed via telebirr.`,
+        };
+      } else {
         tx.status = 'FAILED';
-        tx.errorCode = 'INSUFFICIENT_FUNDS';
-        tx.errorMessage = `Insufficient TeleBirr balance (${profile.telebirrBalance} ETB). Required: ${request.amountETB} ETB.`;
+        tx.errorMessage = res.message || 'Payment initiation failed with telebirr.';
         StorageService.recordPaymentTransaction(tx);
         onStatusChange?.('FAILED', tx.errorMessage);
         return {
@@ -81,29 +100,17 @@ export const PaymentService = {
           message: tx.errorMessage,
         };
       }
+    } catch (err: any) {
+      tx.status = 'FAILED';
+      tx.errorMessage = err.message || 'Payment gateway connection error.';
+      StorageService.recordPaymentTransaction(tx);
+      onStatusChange?.('FAILED', tx.errorMessage);
+      return {
+        status: 'FAILED',
+        transaction: tx,
+        message: tx.errorMessage,
+      };
     }
-
-    // Validation 2: Direct Carrier Airtime Check
-    if (request.method === 'ETHIO_AIRTIME') {
-      onStatusChange?.('PROCESSING', 'Verifying EthioTelecom SIM airtime quota...');
-      await new Promise((r) => setTimeout(r, 600));
-    }
-
-    // Success path
-    onStatusChange?.('PROCESSING', 'Finalizing carrier authorization...');
-    await new Promise((r) => setTimeout(r, 400));
-
-    tx.status = 'SUCCESS';
-    tx.referenceCode = 'REF_TB_' + Math.random().toString(36).substring(2, 9).toUpperCase();
-    StorageService.recordPaymentTransaction(tx);
-
-    onStatusChange?.('SUCCESS', `Payment of ${request.amountETB} ETB confirmed!`);
-
-    return {
-      status: 'SUCCESS',
-      transaction: tx,
-      message: `Payment of ${request.amountETB} ETB authorized via ${request.method === 'TELEBIRR' ? 'TeleBirr' : 'Airtime'}.`,
-    };
   },
 
   /**
@@ -114,7 +121,7 @@ export const PaymentService = {
       transactionId,
       method: 'TELEBIRR',
       amountETB: 0,
-      itemType: 'ENERGY_PACK',
+      itemType: 'COIN_PACK',
       itemTitle: 'Cancelled Order',
       timestamp: new Date().toISOString(),
       status: 'CANCELLED',

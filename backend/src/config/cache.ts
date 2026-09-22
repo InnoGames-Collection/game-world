@@ -149,5 +149,15 @@ export const cache = {
       await memoryFallback.expire(key, ttlSeconds);
     }
     return count;
+  },
+
+  async close(): Promise<void> {
+    if (redisClient && isRedisConnected) {
+      try {
+        await redisClient.quit();
+      } catch {
+        // ignore on shutdown
+      }
+    }
   }
 };

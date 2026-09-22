@@ -76,6 +76,7 @@ interface PopPianoGameProps {
   profile?: UserProfile;
   onGameOver: (score: number, durationSeconds: number) => void;
   onExit: () => void;
+  onRequestSessionStart?: () => boolean;
   isAudioEnabled?: boolean;
 }
 
@@ -83,6 +84,7 @@ export const PopPianoGame: React.FC<PopPianoGameProps> = ({
   profile,
   onGameOver,
   onExit,
+  onRequestSessionStart,
   isAudioEnabled = true,
 }) => {
   // 1. Authoritative Tournament Progression State
@@ -135,6 +137,7 @@ export const PopPianoGame: React.FC<PopPianoGameProps> = ({
   const isTerminatedRef = useRef<boolean>(false);
   const lastFrameTimeRef = useRef<number>(0);
   const rafIdRef = useRef<number | null>(null);
+  const isInitialSession = useRef<boolean>(true);
 
   const canvasDimensionsRef = useRef<{ width: number; height: number }>({ width: 360, height: 640 });
   const hitLineYRef = useRef<number>(530);
@@ -249,9 +252,17 @@ export const PopPianoGame: React.FC<PopPianoGameProps> = ({
   }, []);
 
   /**
-   * Starts level countdown & prepares notes
+   * Starts level countdown & prepares notes (deducts 2 tournament coins on replay/retry/new session)
    */
   const startCountdownForLevel = useCallback((lvl: number) => {
+    if (isInitialSession.current) {
+      isInitialSession.current = false;
+    } else if (onRequestSessionStart) {
+      if (!onRequestSessionStart()) {
+        return;
+      }
+    }
+
     const targetLvl = Math.max(1, Math.min(40, lvl));
     currentLevelRef.current = targetLvl;
     setCurrentLevelNum(targetLvl);
@@ -308,7 +319,7 @@ export const PopPianoGame: React.FC<PopPianoGameProps> = ({
       clearTimeout(t3);
       clearTimeout(t4);
     };
-  }, [spawnNextTile]);
+  }, [onRequestSessionStart, spawnNextTile]);
 
   /**
    * Handles Level Failure
@@ -318,7 +329,9 @@ export const PopPianoGame: React.FC<PopPianoGameProps> = ({
     PianoSynth.playMissThud();
     setFailReason(reason);
     setGameState('GAME_OVER');
-  }, []);
+    const timeTaken = Math.max(1, Math.round((Date.now() - levelStartTimeRef.current) / 1000));
+    onGameOver(hudScore, timeTaken);
+  }, [hudScore, onGameOver]);
 
   /**
    * Handles Level Completion

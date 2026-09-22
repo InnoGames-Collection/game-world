@@ -1,11 +1,13 @@
 /**
  * GoPlay - Coin Purchase Wallet
- * Simplified clean purchase interface for GoPlay Coins.
+ * Simplified clean purchase interface for GoPlay Coins via telebirr.
+ * 10 coins for 10 ETB = 5 tournament plays (2 coins per play).
  */
 
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { StorageService } from '../services/storageService';
+import { PaymentService } from '../services/paymentService';
 import { 
   X, 
   CheckCircle2, 
@@ -20,9 +22,9 @@ interface CoinTopupModalProps {
 }
 
 const COIN_PACKAGES = [
-  { coins: 10, priceETB: 10 },
-  { coins: 25, priceETB: 25 },
-  { coins: 50, priceETB: 50 },
+  { coins: 10, priceETB: 10, playsLabel: '5 Tournament Plays', packageId: 'COIN_PACK_10' as const },
+  { coins: 30, priceETB: 30, playsLabel: '15 Tournament Plays', packageId: 'COIN_PACK_30' as const },
+  { coins: 50, priceETB: 50, playsLabel: '25 Tournament Plays', packageId: 'COIN_PACK_50' as const },
 ];
 
 export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
@@ -40,53 +42,43 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
 
   const selectedPack = COIN_PACKAGES[selectedIdx];
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
-
-    if (profile.telebirrBalance < selectedPack.priceETB) {
-      setErrorMsg(`Insufficient balance (${profile.telebirrBalance.toFixed(2)} ETB available). Required: ${selectedPack.priceETB} ETB.`);
-      return;
-    }
-
     setIsProcessing(true);
-    setTimeout(() => {
-      const updated: UserProfile = {
-        ...profile,
-        coins: profile.coins + selectedPack.coins,
-        telebirrBalance: Math.max(0, profile.telebirrBalance - selectedPack.priceETB),
-      };
-      StorageService.saveProfile(updated);
-      StorageService.recordCoinTransaction({
-        id: 'CTX_' + Date.now().toString(36).toUpperCase(),
-        type: 'TELEBIRR_PURCHASE',
-        amount: selectedPack.coins,
-        description: `Purchased ${selectedPack.coins} GoPlay Coins (${selectedPack.priceETB} ETB)`,
-        timestamp: new Date().toISOString(),
+
+    try {
+      const res = await PaymentService.processPayment(profile, {
+        method: 'TELEBIRR',
+        amountETB: selectedPack.priceETB,
+        packageId: selectedPack.packageId,
+        itemType: 'COIN_PACK',
+        itemTitle: `${selectedPack.coins} GoPlay Coins (${selectedPack.playsLabel})`,
       });
 
-      // Synchronize with backend API if available
-      fetch('/api/payments/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          method: 'TELEBIRR',
-          amountETB: selectedPack.priceETB,
-          itemType: 'COIN_PACK',
-          itemTitle: `${selectedPack.coins} GoPlay Coins`,
-          coinsReward: selectedPack.coins,
-        }),
-      }).catch(() => null);
+      if (res.status === 'SUCCESS') {
+        const updated: UserProfile = {
+          ...profile,
+          coins: (profile.coins || 0) + selectedPack.coins,
+        };
+        StorageService.saveProfile(updated);
+        onProfileUpdate(updated);
 
-      onProfileUpdate(updated);
+        setSuccessMsg(`Successfully credited ${selectedPack.coins} GoPlay Coins! (${selectedPack.playsLabel})`);
+        setTimeout(() => {
+          setSuccessMsg(null);
+          onClose();
+        }, 1200);
+      } else if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+      } else {
+        setErrorMsg(res.message || 'Payment initiation failed.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Connection error with telebirr billing.');
+    } finally {
       setIsProcessing(false);
-      setSuccessMsg(`Successfully credited ${selectedPack.coins} GoPlay Coins!`);
-
-      setTimeout(() => {
-        setSuccessMsg(null);
-        onClose();
-      }, 1000);
-    }, 400);
+    }
   };
 
   return (
@@ -98,9 +90,9 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
         {/* Header */}
         <div className="bg-[#1688C9] text-white p-4 sm:p-5 flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-black tracking-tight">GoPlay Coins</h3>
+            <h3 className="text-lg font-black tracking-tight">GoPlay Tournament Coins</h3>
             <p className="text-xs text-blue-100 font-medium mt-0.5">
-              Choose a package
+              10 ETB = 10 Coins (5 Tournament Matches)
             </p>
           </div>
           <button
@@ -127,7 +119,7 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
             </div>
           )}
 
-          {/* 3 Clean Selectable Packages matching Image 2 */}
+          {/* 3 Clean Selectable Packages */}
           <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
             {COIN_PACKAGES.map((pkg, idx) => {
               const isSelected = selectedIdx === idx;
@@ -144,26 +136,29 @@ export const CoinTopupModal: React.FC<CoinTopupModalProps> = ({
                 >
                   <div className="text-2xl sm:text-3xl mb-1">🪙</div>
                   <div className="text-xs sm:text-sm font-black text-[#17202A] tracking-tight uppercase">
-                    {pkg.priceETB} BIRR
+                    {pkg.priceETB} ETB
                   </div>
                   <div className="text-[11px] sm:text-xs font-bold text-slate-500 mt-0.5 uppercase">
                     {pkg.coins} COINS
+                  </div>
+                  <div className="text-[9px] font-semibold text-emerald-600 mt-1">
+                    {pkg.playsLabel}
                   </div>
                 </button>
               );
             })}
           </div>
 
-          {/* Dynamic Purchase Action */}
+          {/* Purchase Action Button */}
           <button
             onClick={handlePurchase}
             disabled={isProcessing}
             className="w-full py-3.5 px-4 rounded-xl bg-[#8BCB3D] hover:bg-[#7cb934] active:scale-[0.99] text-white font-black text-sm tracking-wide transition-all shadow-md flex items-center justify-center cursor-pointer uppercase"
           >
             {isProcessing ? (
-              <span className="inline-block animate-pulse">Processing Purchase...</span>
+              <span className="inline-block animate-pulse">Connecting to telebirr...</span>
             ) : (
-              <span>BUY {selectedPack.coins} COINS</span>
+              <span>BUY {selectedPack.coins} COINS ({selectedPack.priceETB} ETB)</span>
             )}
           </button>
         </div>

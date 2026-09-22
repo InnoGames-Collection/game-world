@@ -23,4 +23,4 @@ export function createRateLimiter(limit: number, windowSeconds: number = 60, pre
 }
 
 export const generalRateLimiter = createRateLimiter(env.RATE_LIMIT_GENERAL, 60, 'rl_general');
-export const otpRateLimiter = createRateLimiter(env.RATE_LIMIT_OTP, 60, 'rl_otp');
+export const authRateLimiter = createRateLimiter(20, 60, 'rl_auth');

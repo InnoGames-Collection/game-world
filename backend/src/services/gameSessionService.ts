@@ -9,11 +9,14 @@ import pino from 'pino';
 
 const logger = pino({ name: 'GameSessionService' });
 
-export const GAME_ENTRY_COIN_COST = 10;
+export const TOURNAMENT_GAME_IDS = ['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'];
+export const TOURNAMENT_PLAY_COIN_COST = 2; // 2 coins per tournament play (10 coins = 5 plays)
 
 export const gameSessionService = {
   /**
-   * Check game launch entitlement and launch game session
+   * Check game launch entitlement and launch game session.
+   * All games are FREE except the 4 tournament games played in tournament mode,
+   * which cost 2 coins per play.
    */
   async startSession(
     userId: string,
@@ -30,21 +33,28 @@ export const gameSessionService = {
       throw new Error('User profile not found');
     }
 
-    // Check if user has active VIP pass
-    const isVip = profile.subscription.isActive;
+    const isTournament = Boolean(tournamentId) || TOURNAMENT_GAME_IDS.includes(gameId);
     let accessType: 'FREE' | 'COIN' | 'SUBSCRIPTION' = 'FREE';
 
-    if (isVip) {
-      accessType = 'SUBSCRIPTION';
-    } else if (profile.coins >= GAME_ENTRY_COIN_COST) {
+    if (isTournament) {
       accessType = 'COIN';
-      // Deduct coins atomically
+      // Strict coin requirement for tournament play: 2 coins per play
+      if (profile.coins < TOURNAMENT_PLAY_COIN_COST) {
+        throw new Error(
+          `Insufficient coins for tournament play. 2 coins required per play (current balance: ${profile.coins} coins). Purchase 10 coins for 10 ETB to play 5 matches!`
+        );
+      }
+
+      // Deduct 2 coins atomically
       await query('SELECT apply_coins($1, $2, $3, $4)', [
         userId,
-        -GAME_ENTRY_COIN_COST,
-        `Game Entry: ${gameId}`,
-        gameId,
+        -TOURNAMENT_PLAY_COIN_COST,
+        `Tournament Match Play: ${gameId}`,
+        tournamentId || gameId,
       ]);
+    } else {
+      // All other catalog games are 100% free!
+      accessType = 'FREE';
     }
 
     const jti = crypto.randomUUID();
@@ -53,7 +63,7 @@ export const gameSessionService = {
     // Anti-cheat HMAC token
     const token = signGameRoundToken({ uid: userId, gid: gameId, tid: tournamentId, jti });
 
-    // Store in Valkey with 15-minute expiration
+    // Store token in Valkey with 15-minute expiration
     await cache.set(`game_token:${jti}`, JSON.stringify({ uid: userId, gid: gameId, tid: tournamentId }), 900);
 
     // Record entitlement pass
@@ -87,7 +97,7 @@ export const gameSessionService = {
   },
 
   /**
-   * Authoritative score submission with anti-cheat validation
+   * Authoritative score submission with MANDATORY anti-cheat validation
    */
   async submitScore(
     userId: string,
@@ -101,31 +111,34 @@ export const gameSessionService = {
     updatedProfile: UserProfile;
     transaction?: RewardTransaction;
   }> {
-    // 1. Anti-cheat token verification
-    if (token) {
-      const decoded = verifyGameRoundToken(token);
-      if (!decoded || decoded.uid !== userId || decoded.gid !== gameId) {
-        logger.warn({ userId, gameId, token }, 'Anti-cheat alert: Token mismatch or expired');
-        throw new Error('Invalid or expired game session token. Score rejected.');
-      }
-
-      // Check anti-replay in PostgreSQL
-      const nonceRes = await query('SELECT jti FROM used_nonces WHERE jti = $1', [decoded.jti]);
-      if (nonceRes.rowCount && nonceRes.rowCount > 0) {
-        logger.warn({ userId, jti: decoded.jti }, 'Anti-cheat alert: Token replayed');
-        throw new Error('Game session token already consumed (Replay attack prevented).');
-      }
-
-      // Mark nonce as used
-      await query('INSERT INTO used_nonces (jti, user_id, game_id) VALUES ($1, $2, $3)', [
-        decoded.jti,
-        userId,
-        gameId,
-      ]);
-
-      // Remove from Valkey
-      await cache.del(`game_token:${decoded.jti}`);
+    // 1. Mandatory Anti-cheat token verification
+    if (!token || token.trim() === '') {
+      logger.warn({ userId, gameId }, 'Anti-cheat alert: Missing session token');
+      throw new Error('Anti-cheat verification error: Session token is strictly required.');
     }
+
+    const decoded = verifyGameRoundToken(token);
+    if (!decoded || decoded.uid !== userId || decoded.gid !== gameId) {
+      logger.warn({ userId, gameId, token }, 'Anti-cheat alert: Token mismatch or expired');
+      throw new Error('Invalid or expired game session token. Score rejected.');
+    }
+
+    // Check anti-replay in PostgreSQL
+    const nonceRes = await query('SELECT jti FROM used_nonces WHERE jti = $1', [decoded.jti]);
+    if (nonceRes.rowCount && nonceRes.rowCount > 0) {
+      logger.warn({ userId, jti: decoded.jti }, 'Anti-cheat alert: Token replayed');
+      throw new Error('Game session token already consumed (Replay attack prevented).');
+    }
+
+    // Mark nonce as used
+    await query('INSERT INTO used_nonces (jti, user_id, game_id) VALUES ($1, $2, $3)', [
+      decoded.jti,
+      userId,
+      gameId,
+    ]);
+
+    // Remove from Valkey
+    await cache.del(`game_token:${decoded.jti}`);
 
     // 2. Load scoring rules for game
     const ruleRes = await query('SELECT * FROM game_scoring_rules WHERE game_id = $1', [gameId]);
@@ -135,7 +148,7 @@ export const gameSessionService = {
       min_duration_sec: 2,
     };
 
-    // 3. ENFORCE STRICT SCORE RULES (COMMAND 41-58: Max 400 points)
+    // 3. Enforce strict scoring rules (max 400 points)
     let validScore = Math.min(rules.max_score || 400, Math.max(0, Math.round(rawScore)));
 
     // Velocity anti-cheat check
@@ -146,17 +159,12 @@ export const gameSessionService = {
     }
 
     // 4. Calculate Economic Yield
-    const coinsEarned = Math.max(5, Math.floor(validScore / 20));
+    // Note: Coins are ONLY purchased via TeleBirr. Gameplay never credits coins.
+    // Gold earned contributes to score / points and level progression.
+    const goldEarned = Math.max(10, Math.floor(validScore / 2));
     const xpEarned = Math.max(10, Math.floor(validScore / 10));
 
-    // 5. Atomic mutations in PostgreSQL
-    await query('SELECT apply_coins($1, $2, $3, $4)', [
-      userId,
-      coinsEarned,
-      `Match Victory: ${gameId}`,
-      `Score ${validScore}`,
-    ]);
-
+    // 5. Atomic mutations in PostgreSQL (XP progression only, no free coins)
     await query('SELECT apply_xp($1, $2)', [userId, xpEarned]);
 
     // 6. High Scores & Daily Scores update
@@ -199,7 +207,8 @@ export const gameSessionService = {
     const result: GameSessionResult = {
       gameId,
       score: validScore,
-      coinsEarned,
+      coinsEarned: 0,
+      goldEarned,
       xpEarned,
       isNewHighScore,
       durationSeconds,

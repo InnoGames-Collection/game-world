@@ -110,6 +110,7 @@ export interface GameSessionResult {
   gameId: string;
   score: number;
   coinsEarned: number;
+  goldEarned?: number;
   xpEarned: number;
   isNewHighScore: boolean;
   durationSeconds: number;

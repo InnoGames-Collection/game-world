@@ -1,17 +1,14 @@
 /**
- * Application Configuration for GAMEON TELE (TelePlay Ethiopia)
- * Provides centralized environment variable parsing, demo mode gating,
- * and default configuration parameters for production and local environments.
+ * Application Configuration for GAMEON TELE (telebirr Game Center)
+ * Production Configuration
  */
 
 export interface AppConfig {
   /** Application environment name */
   env: "development" | "staging" | "production";
-  /** Flag to determine whether mock data and demo OTPs are allowed */
+  /** Flag to determine whether mock data is allowed - strictly false in production */
   isDemoMode: boolean;
-  /** Fixed demo OTP used for development/testing */
-  demoOtp: string;
-  /** Telebirr Direct Connect base API URL (if connected to live backend) */
+  /** Telebirr Direct Connect base API URL */
   telebirrApiUrl: string;
   /** Energy recharge interval in milliseconds (default: 10 minutes) */
   energyRefillIntervalMs: number;
@@ -28,9 +25,8 @@ const envMode = (import.meta.env.MODE || (isDev ? "development" : "production"))
 
 export const appConfig: AppConfig = Object.freeze({
   env: envMode,
-  isDemoMode: import.meta.env.VITE_ENABLE_DEMO_MODE !== "false",
-  demoOtp: import.meta.env.VITE_DEMO_OTP || "123456",
-  telebirrApiUrl: import.meta.env.VITE_TELEBIRR_API_URL || "https://api.telebirr.et/v1",
+  isDemoMode: false,
+  telebirrApiUrl: import.meta.env.VITE_TELEBIRR_API_URL || "https://telebirr.et",
   energyRefillIntervalMs: Number(import.meta.env.VITE_ENERGY_INTERVAL_MS) || 10 * 60 * 1000,
   energyCheckIntervalMs: 15 * 1000,
   toastTimeoutMs: 4000,

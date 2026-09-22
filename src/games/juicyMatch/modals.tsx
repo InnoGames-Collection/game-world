@@ -290,7 +290,7 @@ export const WinModal: React.FC<WinModalProps> = ({ level, score, stars, coinsEa
             <div className="flex items-center gap-2">
               <Coins className="w-7 h-7 text-amber-500" />
               <div className="text-left">
-                <span className="block text-[10px] font-bold text-slate-400 uppercase">Reward</span>
+                <span className="block text-[10px] font-bold text-slate-400 uppercase">Gold Earned</span>
                 <span className="text-lg font-black text-emerald-600">+{coinsEarned}</span>
               </div>
             </div>

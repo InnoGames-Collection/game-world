@@ -4,7 +4,7 @@
  * statistics, settings, leaderboard, and in-game navigation.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { GameState, HelixJumpSaveData } from './types';
 import { STORAGE_KEY } from './constants';
 import { HELIX_LEVELS } from './levels';
@@ -26,6 +26,8 @@ import { LeaderboardModal } from './components/LeaderboardModal';
 
 interface HelixJumpGameProps {
   onExit: () => void;
+  onGameOver?: (score: number, durationSeconds: number) => void;
+  onRequestSessionStart?: () => boolean;
 }
 
 const DEFAULT_SAVE_DATA: HelixJumpSaveData = {
@@ -68,7 +70,11 @@ function evaluateAchievements(data: HelixJumpSaveData): HelixJumpSaveData {
   };
 }
 
-export const HelixJumpGame: React.FC<HelixJumpGameProps> = ({ onExit }) => {
+export const HelixJumpGame: React.FC<HelixJumpGameProps> = ({ 
+  onExit,
+  onGameOver,
+  onRequestSessionStart,
+}) => {
   // Load saved progress from localStorage
   const [saveData, setSaveData] = useState<HelixJumpSaveData>(() => {
     if (typeof window !== 'undefined') {
@@ -97,6 +103,9 @@ export const HelixJumpGame: React.FC<HelixJumpGameProps> = ({ onExit }) => {
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [starsEarnedThisRound, setStarsEarnedThisRound] = useState<number>(1);
   const [renderKey, setRenderKey] = useState<number>(0); // force canvas re-mount on restart
+
+  const isInitialSession = useRef<boolean>(true);
+  const sessionStartTime = useRef<number>(Date.now());
 
   // Sync sound settings with audio engine
   useEffect(() => {
@@ -129,8 +138,17 @@ export const HelixJumpGame: React.FC<HelixJumpGameProps> = ({ onExit }) => {
     return HELIX_LEVELS.find((lvl) => lvl.id === currentLevelId) || HELIX_LEVELS[0];
   }, [currentLevelId]);
 
-  // Start specific level
+  // Start specific level (deducts 2 tournament coins on replay/retry/new session)
   const handleStartLevel = useCallback((levelId: number) => {
+    if (isInitialSession.current) {
+      isInitialSession.current = false;
+    } else if (onRequestSessionStart) {
+      if (!onRequestSessionStart()) {
+        return;
+      }
+    }
+
+    sessionStartTime.current = Date.now();
     setCurrentLevelId(levelId);
     setScore(0);
     setProgressPercent(0);
@@ -140,12 +158,15 @@ export const HelixJumpGame: React.FC<HelixJumpGameProps> = ({ onExit }) => {
       totalGames: (prev.totalGames || 0) + 1,
     }));
     setGameState('PLAYING');
-  }, [updateAndPersistSaveData]);
+  }, [onRequestSessionStart, updateAndPersistSaveData]);
 
   // Handle Game Over
   const handleGameOver = useCallback(
     (finalScore: number) => {
       setScore(finalScore);
+      const duration = Math.max(1, Math.round((Date.now() - sessionStartTime.current) / 1000));
+      onGameOver?.(finalScore, duration);
+
       updateAndPersistSaveData((prev) => {
         const prevBestLevel = prev.bestScores[currentLevelId] || 0;
         const newOverallBest = Math.max(prev.bestScore || 0, finalScore);
@@ -162,13 +183,15 @@ export const HelixJumpGame: React.FC<HelixJumpGameProps> = ({ onExit }) => {
       });
       setGameState('GAME_OVER');
     },
-    [currentLevelId, updateAndPersistSaveData]
+    [currentLevelId, onGameOver, updateAndPersistSaveData]
   );
 
   // Handle Level Complete
   const handleLevelComplete = useCallback(
     (finalScore: number) => {
       setScore(finalScore);
+      const duration = Math.max(1, Math.round((Date.now() - sessionStartTime.current) / 1000));
+      onGameOver?.(finalScore, duration);
 
       // Calculate 1-3 stars
       const thresholds = currentLevelDef.starThresholds;

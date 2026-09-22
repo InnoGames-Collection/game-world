@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:admin": "node dist/admin/adminServer.js",
     "dev": "tsx watch src/index.ts",
+    "dev:admin": "tsx watch src/admin/adminServer.ts",
     "lint": "tsc --noEmit",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",

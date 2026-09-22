@@ -50,6 +50,8 @@ interface GameLauncherModalProps {
   onClose: () => void;
   onGameOver: (score: number, durationSeconds: number) => void;
   onPlayAgain: () => void;
+  onRequestSessionStart?: () => boolean;
+  onRequireCoins?: () => void;
   onWatchAdForDouble?: () => void;
   isAudioEnabled?: boolean;
 }
@@ -61,6 +63,8 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
   onClose,
   onGameOver,
   onPlayAgain,
+  onRequestSessionStart,
+  onRequireCoins,
   isAudioEnabled = true,
 }) => {
   // Candy Blast handles its own complete standalone mobile game hub and HUD
@@ -206,6 +210,7 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
           profile={profile}
           onGameOver={onGameOver}
           onExit={onClose}
+          onRequestSessionStart={onRequestSessionStart}
           isAudioEnabled={isAudioEnabled}
         />
       </div>
@@ -332,6 +337,8 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
     return (
       <div className="fixed inset-0 z-50 bg-[#2B2B2B] flex flex-col justify-start items-center overflow-hidden animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif] touch-none overscroll-none select-none">
         <CrazyColorsGame
+          onGameOver={onGameOver}
+          onRequestSessionStart={onRequestSessionStart}
           onExit={onClose}
         />
       </div>
@@ -343,6 +350,8 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
     return (
       <div className="fixed inset-0 z-50 bg-[#0284c7] flex flex-col justify-start items-center overflow-hidden animate-in fade-in duration-200 font-['Plus_Jakarta_Sans',sans-serif] touch-none overscroll-none select-none">
         <HelixJumpGame
+          onGameOver={onGameOver}
+          onRequestSessionStart={onRequestSessionStart}
           onExit={onClose}
         />
       </div>
@@ -357,6 +366,7 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
           game={game}
           profile={profile}
           onGameOver={onGameOver}
+          onRequestSessionStart={onRequestSessionStart}
           onExit={onClose}
           isAudioEnabled={isAudioEnabled}
         />
@@ -578,10 +588,10 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
               </div>
 
               <div className="bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-left">
-                <div className="text-[10px] text-slate-400 font-semibold uppercase">MATCH REWARDS</div>
+                <div className="text-[10px] text-slate-400 font-semibold uppercase">GOLD BONUS (POINTS)</div>
                 <div className="text-base font-bold text-amber-400 font-mono flex items-center gap-1">
-                  <Coins className="w-4 h-4 fill-current" />
-                  <span>+{lastResult.coinsEarned}</span>
+                  <Sparkles className="w-4 h-4 text-amber-400" />
+                  <span>+{lastResult.goldEarned ?? Math.floor(lastResult.score / 2)} GOLD</span>
                 </div>
               </div>
             </div>
@@ -593,7 +603,11 @@ export const GameLauncherModal: React.FC<GameLauncherModalProps> = ({
                 className="w-full py-3.5 rounded-xl bg-[#78BE20] hover:bg-[#68a81b] text-white font-black text-xs uppercase tracking-wider active:scale-95 transition-transform shadow-lg flex items-center justify-center gap-2 cursor-pointer"
               >
                 <RotateCcw className="w-4 h-4 stroke-[2.5]" />
-                <span>PLAY AGAIN</span>
+                <span>
+                  {['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'].includes(game.id)
+                    ? 'PLAY AGAIN (2 COINS)'
+                    : 'PLAY AGAIN'}
+                </span>
               </button>
 
               <button

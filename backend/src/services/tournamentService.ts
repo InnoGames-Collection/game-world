@@ -5,6 +5,8 @@ import pino from 'pino';
 
 const logger = pino({ name: 'TournamentService' });
 
+export const TOURNAMENT_FEE_COINS = 2; // 2 coins per play (10 ETB pack = 10 coins = 5 plays)
+
 export const tournamentService = {
   /**
    * Get all live and upcoming tournaments with user state
@@ -51,13 +53,13 @@ export const tournamentService = {
         bannerImage: row.banner_image || '',
         prizePoolETB: parseFloat(row.prize_pool_etb) || 0,
         prizePoolCoins: parseInt(row.prize_pool_coins, 10) || 0,
-        entryFeeEnergy: row.entry_fee_energy || 1,
-        entryRequirement: row.entry_requirement || 'Open to All Players',
+        entryFeeEnergy: 0,
+        entryRequirement: '2 Coins Per Play (10 ETB Pack = 5 Plays)',
         startDate: new Date(row.starts_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         endDate: new Date(row.ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         status: row.state === 'live' ? 'Live' : row.state === 'upcoming' ? 'Upcoming' : 'Ended',
         participantsCount: row.participants_count || 0,
-        sponsor: row.sponsor || 'EthioTelecom',
+        sponsor: row.sponsor || 'telebirr SuperApp',
         playerRank,
         playerScore,
         hasSubmitted,
@@ -69,7 +71,7 @@ export const tournamentService = {
   },
 
   /**
-   * Enter a tournament and reserve attempts
+   * Enter a tournament and reserve attempt (2 coins per tournament play)
    */
   async enterTournament(
     userId: string,
@@ -85,47 +87,42 @@ export const tournamentService = {
       return { success: false, message: `Tournament is currently ${tournament.state}. Entry closed.`, attemptsLeft: 0 };
     }
 
-    // Check user profile and deduct energy if not VIP
-    const pRes = await query(
-      `SELECT p.energy, COALESCE(s.is_active, FALSE) AS is_vip
-         FROM profiles p
-         LEFT JOIN subscriptions s ON s.user_id = p.id AND s.is_active = TRUE AND s.expires_at > NOW()
-        WHERE p.id = $1`,
-      [userId]
-    );
+    // Check user coin balance (2 coins required per tournament play)
+    const pRes = await query(`SELECT coins FROM profiles WHERE id = $1`, [userId]);
+    const coins = parseInt(pRes.rows[0]?.coins || '0', 10);
 
-    const user = pRes.rows[0];
-    if (!user.is_vip && user.energy < tournament.entry_fee_energy) {
+    if (coins < TOURNAMENT_FEE_COINS) {
       return {
         success: false,
-        message: `Insufficient energy (${user.energy}/${tournament.entry_fee_energy}). Recharge energy to enter!`,
+        message: `Insufficient coins (${coins}/${TOURNAMENT_FEE_COINS} coins). Purchase 10 coins for 10 ETB via telebirr to play 5 matches!`,
         attemptsLeft: 0,
       };
     }
 
-    if (!user.is_vip && tournament.entry_fee_energy > 0) {
-      await query('SELECT apply_energy($1, $2, $3, $4)', [
-        userId,
-        -tournament.entry_fee_energy,
-        'TOURNAMENT_ENTRY',
-        `Tournament ${tournamentId}`,
-      ]);
-    }
+    // Deduct 2 coins atomically
+    await query('SELECT apply_coins($1, $2, $3, $4)', [
+      userId,
+      -TOURNAMENT_FEE_COINS,
+      'Tournament Entry',
+      tournamentId,
+    ]);
 
     const entryRes = await query(
       `INSERT INTO tournament_entries (user_id, tournament_id, attempts_left)
-       VALUES ($1, $2, 10)
+       VALUES ($1, $2, 1)
        ON CONFLICT (user_id, tournament_id) DO UPDATE
-         SET attempts_left = tournament_entries.attempts_left + 5
+         SET attempts_left = tournament_entries.attempts_left + 1
        RETURNING attempts_left`,
       [userId, tournamentId]
     );
 
     await query(`UPDATE tournaments SET participants_count = participants_count + 1 WHERE id = $1`, [tournamentId]);
 
+    logger.info({ userId, tournamentId }, 'Tournament entered, 2 coins deducted');
+
     return {
       success: true,
-      message: `Entered ${tournament.title}! 10 tournament match attempts available.`,
+      message: `Entered ${tournament.title}! 2 coins deducted. Play started.`,
       attemptsLeft: entryRes.rows[0].attempts_left,
     };
   },
@@ -202,8 +199,8 @@ export const tournamentService = {
           tournamentId,
           score,
           1,
-          '7,500 ETB Cash Prize',
-          7500,
+          '12,500 ETB Cash Prize',
+          12500,
           1000,
           auditHash,
         ]

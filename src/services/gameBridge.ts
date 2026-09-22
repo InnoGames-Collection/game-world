@@ -1,84 +1,65 @@
 /**
- * Game Bridge Service for TelePlus Ethiopia
- * Orchestrates game launching, testing mode access, coin deduction, score validation (max 400 per game),
- * and leaderboard synchronization.
+ * Game Bridge Service for telebirr Game Center
+ * Orchestrates game launching, tournament coin validation (2 coins per tournament play),
+ * score submission with server anti-cheat tokens, and leaderboard synchronization.
  */
 
 import { GameDefinition, GameSessionResult, UserProfile, RewardTransaction } from '../types';
 import { StorageService } from './storageService';
-import { CompetitiveService } from './competitiveService';
+import { apiService } from './apiService';
 import { GameLeaderboardService } from './gameLeaderboardService';
 
-export const GAME_ENTRY_COIN_COST = 10;
-
-// Controlled Development / Testing Flag:
-// In testing mode, allows instant play without blocking on coin balance
-export const DEV_TESTING_MODE = true;
+// The 4 official tournament games
+export const TOURNAMENT_GAME_IDS = ['crazy-colors', 'fruit-slice', 'helix-jump', 'pop-piano'];
+export const TOURNAMENT_PLAY_COIN_COST = 2; // 2 coins per play (10 ETB pack = 10 coins = 5 plays)
 
 export const GameBridgeService = {
   /**
    * Check if user can launch the game.
-   * If DEV_TESTING_MODE is true, access is immediately permitted.
+   * All games are 100% FREE except the 4 tournament games when entered in tournament mode.
    */
   canLaunchGame(
     game: GameDefinition, 
-    profile: UserProfile
+    profile: UserProfile,
+    isTournamentMode: boolean = false
   ): { 
     allowed: boolean; 
     reason?: string; 
     requiresCoins?: boolean;
     requiresAuth?: boolean; 
-    requiresSubscription?: boolean 
   } {
-    // Candy Crush and Word Legend are completely free with direct access per spec
-    if (game.id === 'candy-blast' || game.id === 'world-legends' || game.isFree || game.accessType === 'FREE' || game.entryCostCoins === 0) {
+    const isTournament = isTournamentMode || TOURNAMENT_GAME_IDS.includes(game.id);
+
+    // All non-tournament games are 100% FREE!
+    if (!isTournament) {
       return { allowed: true };
     }
 
-    // In dev / test mode, allow tester to play games freely
-    if (DEV_TESTING_MODE) {
-      return { allowed: true };
-    }
-
-    if (!profile.isRegistered) {
-      return {
-        allowed: false,
-        requiresAuth: true,
-        reason: 'Please sign in with your EthioTelecom phone number to play and save your score.',
-      };
-    }
-
-    const cost = game.entryCostCoins ?? GAME_ENTRY_COIN_COST;
-    if (profile.coins >= cost) {
+    // Tournament game check: 2 coins per play
+    if (profile.coins >= TOURNAMENT_PLAY_COIN_COST) {
       return { allowed: true };
     }
 
     return {
       allowed: false,
       requiresCoins: true,
-      reason: `You need ${cost} Coins to enter ${game.title}. Your current balance is ${profile.coins} Coins. Recharge coins to play!`,
+      reason: `Tournament play requires ${TOURNAMENT_PLAY_COIN_COST} Coins. Current balance: ${profile.coins} Coins. Purchase 10 coins for 10 ETB to play 5 matches!`,
     };
   },
 
   /**
    * Deduction of required entry coins with unique session ID.
-   * Free games, Candy Crush, and Word Legend NEVER deduct coins.
+   * Only tournament games deduct 2 coins per play.
    */
   deductCoinsForLaunch(
     game: GameDefinition, 
-    profile: UserProfile
+    profile: UserProfile,
+    isTournamentMode: boolean = false
   ): { updatedProfile: UserProfile; sessionId: string } {
     const sessionId = `GSESS_${game.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    
-    // Candy Crush and Word Legend (and any free game) must NEVER deduct coins
-    const isZeroCost = 
-      game.id === 'candy-blast' || 
-      game.id === 'world-legends' || 
-      game.isFree || 
-      game.accessType === 'FREE' || 
-      game.entryCostCoins === 0;
+    const isTournament = isTournamentMode || TOURNAMENT_GAME_IDS.includes(game.id);
 
-    if (isZeroCost) {
+    if (!isTournament) {
       const updated: UserProfile = {
         ...profile,
         matchesPlayed: (profile.matchesPlayed || 0) + 1,
@@ -87,10 +68,8 @@ export const GameBridgeService = {
       return { updatedProfile: updated, sessionId };
     }
 
-    const cost = game.entryCostCoins ?? GAME_ENTRY_COIN_COST;
-    
-    // Deduct coins only if available
-    const newCoins = Math.max(0, profile.coins - cost);
+    // Deduct 2 coins for tournament play
+    const newCoins = Math.max(0, profile.coins - TOURNAMENT_PLAY_COIN_COST);
     const updated: UserProfile = {
       ...profile,
       coins: newCoins,
@@ -98,35 +77,45 @@ export const GameBridgeService = {
     };
 
     StorageService.saveProfile(updated);
-
     return { updatedProfile: updated, sessionId };
   },
 
   /**
-   * Processes game session completion, ensures score never exceeds 400 points,
-   * updates high scores (best valid score only), and syncs with competitive tournament system.
+   * Processes game session completion and submits authoritative score to backend
    */
-  submitScore(
+  async submitScore(
     gameId: string,
     rawScore: number,
     durationSeconds: number,
     profile: UserProfile,
     tournamentId?: string
-  ): { result: GameSessionResult; updatedProfile: UserProfile; transaction?: RewardTransaction } {
-    // Preserve authentic game score without artificial capping
+  ): Promise<{ result: GameSessionResult; updatedProfile: UserProfile; transaction?: RewardTransaction }> {
     const validScore = Math.max(0, Math.round(rawScore));
 
-    // Record score into GameLeaderboardService
+    // Record score into local client leaderboard service
     GameLeaderboardService.recordScore(gameId, validScore, profile.displayName);
+
+    // Submit authoritative score to backend Fastify server (which enforces anti-cheat tokens)
+    let backendProfile: UserProfile | undefined;
+    let tournamentTx: RewardTransaction | undefined;
+
+    try {
+      const serverRes = await apiService.submitScore(gameId, validScore, durationSeconds, tournamentId);
+      if (serverRes?.updatedProfile) {
+        backendProfile = serverRes.updatedProfile;
+      }
+    } catch (e) {
+      console.warn('[GameBridge] Server score submission fallback to client cache:', e);
+    }
 
     const currentHighScore = profile.highScores?.[gameId] || 0;
     const isNewHighScore = validScore > currentHighScore;
+
     const updatedHighScores = {
       ...(profile.highScores || {}),
       [gameId]: Math.max(currentHighScore, validScore),
     };
 
-    // Record daily score for date-based leaderboard calculation
     const todayStr = new Date().toISOString().split('T')[0];
     const existingDailyScores = profile.dailyScores || {};
     const todayGameScores = existingDailyScores[todayStr] || {};
@@ -138,36 +127,28 @@ export const GameBridgeService = {
       },
     };
 
-    // Calculate coin earnings based on performance
-    const coinsEarned = Math.max(5, Math.floor(validScore / 20));
+    // Note: Coins are ONLY purchased via TeleBirr. Gameplay yields in-game Gold (points) and XP.
+    const goldEarned = Math.max(10, Math.floor(validScore / 2));
     const xpEarned = Math.max(10, Math.floor(validScore / 10));
 
-    const newCoins = (profile.coins || 0) + coinsEarned;
-    const newXP = (profile.xp || 0) + xpEarned;
-    const newLevel = 1 + Math.floor(newXP / 1000);
-
-    const updatedProfile: UserProfile = {
+    const updatedProfile: UserProfile = backendProfile || {
       ...profile,
       highScores: updatedHighScores,
       dailyScores: updatedDailyScores,
-      coins: newCoins,
-      xp: newXP,
-      level: newLevel,
+      // Coins remain unchanged - only purchased via TeleBirr
+      coins: profile.coins || 0,
+      xp: (profile.xp || 0) + xpEarned,
+      level: 1 + Math.floor(((profile.xp || 0) + xpEarned) / 1000),
       trophiesCount: isNewHighScore ? (profile.trophiesCount || 0) + 1 : (profile.trophiesCount || 0),
     };
 
     StorageService.saveProfile(updatedProfile);
 
-    let tournamentTx: RewardTransaction | undefined = undefined;
-    if (tournamentId) {
-      const tourneyResult = CompetitiveService.submitTournamentScore(tournamentId, validScore, updatedProfile);
-      tournamentTx = tourneyResult.transaction;
-    }
-
     const result: GameSessionResult = {
       gameId,
       score: validScore,
-      coinsEarned,
+      coinsEarned: 0,
+      goldEarned,
       xpEarned,
       isNewHighScore,
       durationSeconds,

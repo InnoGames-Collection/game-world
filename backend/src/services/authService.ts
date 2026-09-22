@@ -1,10 +1,7 @@
 import { query } from '../config/database.js';
 import { cache } from '../config/cache.js';
-import { env } from '../config/env.js';
 import { normalizeEthiopianPhone } from '../utils/msisdn.js';
-import { generateRandomOtp } from '../utils/crypto.js';
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
-import { smsService } from './smsService.js';
 import { UserProfile } from '../types/domain.js';
 import pino from 'pino';
 
@@ -12,211 +9,62 @@ const logger = pino({ name: 'AuthService' });
 
 export const authService = {
   /**
-   * Check if a phone number is permitted to login based on subscription entitlement
+   * TeleBirr SuperApp Direct Connect Single-Sign-On
+   * Authenticates player through telebirr Game Center credentials
    */
-  async loginGate(phoneInput: string): Promise<{ allowed: boolean; reason?: string; hint?: string }> {
-    const { isValid, e164, local } = normalizeEthiopianPhone(phoneInput);
-    if (!isValid) {
-      return {
-        allowed: false,
-        reason: 'Invalid Ethiopian phone number. Please enter a number starting with 09 or 07.',
-      };
-    }
-
-    // Check if user already exists
-    const userRes = await query('SELECT id, role FROM profiles WHERE phone = $1', [e164]);
-    if (userRes.rowCount && userRes.rows[0].role === 'admin') {
-      return { allowed: true };
-    }
-
-    // Check subscriptions table
-    const subRes = await query(
-      `SELECT * FROM subscriptions
-        WHERE msisdn = $1 AND is_active = TRUE AND expires_at > NOW()`,
-      [e164]
-    );
-
-    if (subRes.rowCount && subRes.rowCount > 0) {
-      return { allowed: true };
-    }
-
-    // In non-strict mode or for demo/evaluation, allow login with free access prompt
-    return {
-      allowed: true,
-      hint: 'To unlock VIP unlimited match plays, send 1 to 977 for Daily Pass (5 ETB).',
-    };
-  },
-
-  /**
-   * Request OTP code delivery via SMS
-   */
-  async requestOtp(phoneInput: string): Promise<{ success: boolean; message: string; demoOtp?: string }> {
-    const { isValid, e164, local, mnoMsisdn } = normalizeEthiopianPhone(phoneInput);
-    if (!isValid) {
-      return {
-        success: false,
-        message: 'Please enter a valid EthioTelecom phone number starting with 09 or 07.',
-      };
-    }
-
-    // Check 60s cooldown
-    const cdKey = `otp_cd:${e164}`;
-    const inCooldown = await cache.get(cdKey);
-    if (inCooldown) {
-      return {
-        success: false,
-        message: 'An SMS code was recently requested. Please wait 60 seconds before requesting again.',
-      };
-    }
-
-    const otp = generateRandomOtp(6);
-    const otpKey = `otp:${e164}`;
-
-    // Store in Valkey with 5-minute expiry
-    await cache.set(otpKey, JSON.stringify({ code: otp, attempts: 0 }), 300);
-    // Set 60-second cooldown
-    await cache.set(cdKey, '1', 60);
-
-    const smsMessage = `Your GAMEON TELE verification code is: ${otp}. Valid for 5 minutes. Do not share this code.`;
-
-    const sendRes = await smsService.sendMt({
-      msisdn: mnoMsisdn,
-      type: 'otp',
-      message: smsMessage,
-    });
-
-    logger.info({ phone: e164, success: sendRes.success }, 'OTP requested');
-
-    return {
-      success: true,
-      message: `Verification code sent to ${local}.`,
-      demoOtp: env.DEV_OTP_ECHO ? otp : undefined,
-    };
-  },
-
-  /**
-   * Verify OTP code and authenticate user
-   */
-  async verifyOtp(
-    phoneInput: string,
-    otpInput: string
+  async loginWithTeleBirr(
+    phoneParam?: string,
+    telebirrToken?: string
   ): Promise<{
     success: boolean;
     message: string;
     profile?: UserProfile;
     tokens?: { accessToken: string; refreshToken: string };
   }> {
-    const { isValid, e164, local } = normalizeEthiopianPhone(phoneInput);
-    if (!isValid) {
-      return { success: false, message: 'Invalid phone number.' };
-    }
-
-    const trimmedOtp = (otpInput || '').trim();
-    const otpKey = `otp:${e164}`;
-    const rawData = await cache.get(otpKey);
-
-    let isMatch = false;
-
-    if (rawData) {
-      const data = JSON.parse(rawData);
-      if (data.attempts >= 5) {
-        await cache.del(otpKey);
-        return { success: false, message: 'Too many incorrect attempts. Please request a new code.' };
-      }
-
-      if (data.code === trimmedOtp) {
-        isMatch = true;
-        await cache.del(otpKey);
-      } else {
-        data.attempts += 1;
-        await cache.set(otpKey, JSON.stringify(data), 300);
-      }
-    } else if (env.DEV_OTP_ECHO && (trimmedOtp === '123456' || trimmedOtp === '999999')) {
-      // Emergency dev fallback code
-      isMatch = true;
-    }
-
-    if (!isMatch) {
+    if (!phoneParam || phoneParam.trim() === '') {
       return {
         success: false,
-        message: 'Invalid 6-digit verification code. Please check your SMS and try again.',
+        message: 'Missing telebirr MSISDN authentication parameter.',
+      };
+    }
+
+    const { isValid, e164, local } = normalizeEthiopianPhone(phoneParam.trim());
+    if (!isValid) {
+      return {
+        success: false,
+        message: 'Invalid telebirr phone number format. Expected Ethiopian MSISDN.',
       };
     }
 
     // Upsert Profile in PostgreSQL
     const upsertRes = await query(
-      `INSERT INTO profiles (phone, display_name, avatar_id, is_registered, telebirr_linked)
-       VALUES ($1, $2, 'avatar_runner', TRUE, TRUE)
+      `INSERT INTO profiles (phone, display_name, avatar_id, is_registered, telebirr_linked, telebirr_balance)
+       VALUES ($1, $2, 'avatar_runner', TRUE, TRUE, 0.00)
        ON CONFLICT (phone) DO UPDATE
          SET is_registered = TRUE, telebirr_linked = TRUE, updated_at = NOW()
-       RETURNING id, role`,
-      [e164, `Player_${local.slice(-4)}`]
-    );
-
-    const user = upsertRes.rows[0];
-
-    // Ensure preferences and streaks exist
-    await query(
-      `INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
-      [user.id]
-    );
-    await query(
-      `INSERT INTO user_streaks (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`,
-      [user.id]
-    );
-
-    // Generate JWTs
-    const accessToken = signAccessToken({ userId: user.id, phone: e164, role: user.role });
-    const refreshToken = signRefreshToken({ userId: user.id, phone: e164, role: user.role });
-
-    // Cache active session
-    await cache.set(`session:${user.id}`, JSON.stringify({ userId: user.id, phone: e164 }), 86400);
-
-    const profile = await this.getProfile(user.id);
-
-    return {
-      success: true,
-      message: 'Successfully authenticated with EthioTelecom.',
-      profile: profile!,
-      tokens: { accessToken, refreshToken },
-    };
-  },
-
-  /**
-   * TeleBirr SuperApp Direct Connect Single-Sign-On
-   */
-  async loginWithTeleBirr(phoneParam?: string): Promise<{
-    success: boolean;
-    message: string;
-    profile: UserProfile;
-    tokens: { accessToken: string; refreshToken: string };
-  }> {
-    const targetPhone = phoneParam || '+251911428890';
-    const { e164, local } = normalizeEthiopianPhone(targetPhone);
-
-    const upsertRes = await query(
-      `INSERT INTO profiles (phone, display_name, avatar_id, is_registered, telebirr_linked, telebirr_balance)
-       VALUES ($1, $2, 'avatar_runner', TRUE, TRUE, 250.00)
-       ON CONFLICT (phone) DO UPDATE
-         SET is_registered = TRUE, telebirr_linked = TRUE,
-             telebirr_balance = GREATEST(profiles.telebirr_balance, 250.00), updated_at = NOW()
        RETURNING id, role`,
       [e164, `Gamer_${local.slice(-4)}`]
     );
 
     const user = upsertRes.rows[0];
 
+    // Ensure preferences and streaks records exist
     await query(`INSERT INTO user_preferences (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [user.id]);
     await query(`INSERT INTO user_streaks (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING`, [user.id]);
 
     const accessToken = signAccessToken({ userId: user.id, phone: e164, role: user.role });
     const refreshToken = signRefreshToken({ userId: user.id, phone: e164, role: user.role });
 
+    // Cache active session in Valkey (24h TTL)
+    await cache.set(`session:${user.id}`, JSON.stringify({ userId: user.id, phone: e164 }), 86400);
+
     const profile = await this.getProfile(user.id);
+
+    logger.info({ userId: user.id, phone: e164 }, 'Player authenticated via TeleBirr Game Center');
 
     return {
       success: true,
-      message: 'Connected with TeleBirr SuperApp successfully.',
+      message: 'Connected with TeleBirr Game Center successfully.',
       profile: profile!,
       tokens: { accessToken, refreshToken },
     };
