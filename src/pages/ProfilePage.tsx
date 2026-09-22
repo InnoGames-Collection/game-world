@@ -434,11 +434,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
             <div>
               <div className="text-xs font-black">Admin Operations Console</div>
-              <div className="text-[10px] text-slate-400">gameon-admin.innopulseplatform.com</div>
+              <div className="text-[10px] text-slate-400">goplay-admin.innopulseplatform.com</div>
             </div>
           </div>
           <a
-            href="https://gameon-admin.innopulseplatform.com"
+            href="https://goplay-admin.innopulseplatform.com"
             target="_blank"
             rel="noopener noreferrer"
             className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl transition-colors shadow-xs"

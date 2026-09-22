@@ -1,5 +1,5 @@
 # ==============================================================================
-# GAMEON TELE — Complete Production Stack (Frontend + Backend + Dedicated Admin + DB + Cache)
+# GoPlay — Complete Production Stack (Frontend + Backend + Dedicated Admin + DB + Cache)
 # Target: GCP Compute Engine VM (innoserver-serv001: 34.41.116.217)
 # Port Block:
 #   - 3300: gameon-web (Customer Gaming Portal)
@@ -75,8 +75,8 @@ services:
       TELEBIRR_APP_KEY: ${TELEBIRR_APP_KEY:-}
       TELEBIRR_APP_ID: ${TELEBIRR_APP_ID:-}
       TELEBIRR_CHECKOUT_URL: ${TELEBIRR_CHECKOUT_URL:-https://telebirr.et/checkout}
-      TELEBIRR_NOTIFY_URL: ${TELEBIRR_NOTIFY_URL:-https://gameon-api.innopulseplatform.com/api/webhooks/telebirr/callback}
-      TELEBIRR_RETURN_URL: ${TELEBIRR_RETURN_URL:-https://gameon.innopulseplatform.com/#/profile}
+      TELEBIRR_NOTIFY_URL: ${TELEBIRR_NOTIFY_URL:-https://goplay.innopulseplatform.com/api/webhooks/telebirr/callback}
+      TELEBIRR_RETURN_URL: ${TELEBIRR_RETURN_URL:-https://goplay.innopulseplatform.com/#/profile}
     ports:
       - "127.0.0.1:3302:3302"
     deploy:
@@ -116,7 +116,7 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       BREVO_SENDER_EMAIL: ${BREVO_SENDER_EMAIL:-innospher@gmail.com}
       BREVO_SENDER_NAME: "GoPlay Operations Console"
-      ADMIN_PORTAL_URL: ${ADMIN_PORTAL_URL:-https://gameon-admin.innopulseplatform.com}
+      ADMIN_PORTAL_URL: ${ADMIN_PORTAL_URL:-https://goplay-admin.innopulseplatform.com}
     ports:
       - "127.0.0.1:3303:3303"
     deploy:

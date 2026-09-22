@@ -63,7 +63,7 @@ async function main() {
 
   // 3. Healthcheck Probes
   fastify.get('/health', async () => ({ status: 'healthy', timestamp: new Date().toISOString() }));
-  fastify.get('/api/v1/health', async () => ({ status: 'healthy', platform: 'GAMEON TELE', version: '1.0.0' }));
+  fastify.get('/api/v1/health', async () => ({ status: 'healthy', platform: 'GoPlay', version: '1.0.0' }));
 
   // 4. API Routes (Player & Game Center API)
   await fastify.register(authRoutes, { prefix: '/api/auth' });
@@ -83,7 +83,7 @@ async function main() {
   // 6. Start Listening
   try {
     const address = await fastify.listen({ port: env.PORT, host: env.HOST });
-    fastify.log.info(`🚀 GAMEON TELE Server running at ${address}`);
+    fastify.log.info(`🚀 GoPlay Server running at ${address}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

@@ -33,13 +33,13 @@ export const env = cleanEnv(process.env, {
   TELEBIRR_APP_ID: str({ default: '' }),
   TELEBIRR_PUBLIC_KEY: str({ default: '' }),
   TELEBIRR_CHECKOUT_URL: str({ default: 'https://telebirr.et/checkout' }),
-  TELEBIRR_NOTIFY_URL: str({ default: 'https://gameon-api.innopulseplatform.com/api/webhooks/telebirr/callback' }),
-  TELEBIRR_RETURN_URL: str({ default: 'https://gameon.innopulseplatform.com/#/profile' }),
+  TELEBIRR_NOTIFY_URL: str({ default: 'https://goplay.innopulseplatform.com/api/webhooks/telebirr/callback' }),
+  TELEBIRR_RETURN_URL: str({ default: 'https://goplay.innopulseplatform.com/#/profile' }),
 
   // Brevo Transactional Email & Admin Magic Link Auth
   BREVO_API_KEY: str({ default: '' }),
   BREVO_SENDER_EMAIL: str({ default: 'innospher@gmail.com' }),
   BREVO_SENDER_NAME: str({ default: 'GoPlay Admin Portal' }),
   MAGIC_LINK_SECRET: str({ default: 'goplay-tele-admin-magic-link-secret-2026' }),
-  ADMIN_PORTAL_URL: str({ default: 'https://gameon-admin.innopulseplatform.com' })
+  ADMIN_PORTAL_URL: str({ default: 'https://goplay-admin.innopulseplatform.com' })
 });

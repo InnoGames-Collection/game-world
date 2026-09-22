@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# GAMEON TELE — Enterprise Production Deployment Engine
+# GoPlay — Enterprise Production Deployment Engine
 # Target: GCP Compute Engine VM (innoserver-serv001: 34.41.116.217)
 # ==============================================================================
 set -Eeuo pipefail
@@ -103,5 +103,5 @@ docker compose -f docker-compose.server.yml exec -T api node dist/db/seed.js || 
 trap - EXIT
 
 echo "=============================================================================="
-echo "🎉 [DEPLOYMENT CERTIFIED] GAMEON TELE Live on innopulseplatform.com"
+echo "🎉 [DEPLOYMENT CERTIFIED] GoPlay Live on innopulseplatform.com"
 echo "=============================================================================="

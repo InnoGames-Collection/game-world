@@ -25,7 +25,7 @@ export const DEMO_USER_PROFILE: UserProfile = {
   telebirrLinked: true,
   telebirrId: 'TB-894210',
   telebirrBalance: 145.50, // 145.50 ETB in telebirr account
-  coins: 50, // 50 GameON Coins
+  coins: 50, // 50 GoPlay Coins
   xp: 3850,
   level: 5,
   energy: 5,

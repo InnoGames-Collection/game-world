@@ -323,7 +323,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     ],
     about: {
       version: '1.0.0',
-      developer: 'GameON Studios',
+      developer: 'GoPlay Studios',
       engine: 'Three.js 3D Vinyl Sphere Engine',
       features: ['Stylized 3D vinyl emoji spheres', 'Mandatory 8-tube vibrant palette', '40 isomorphic tournament levels', 'Undo, Hint, and Extra Buffer Tubes'],
     },
@@ -1212,7 +1212,7 @@ export const GAME_CONFIGS: Record<string, GameConfig> = {
     ],
     about: {
       version: '1.0.0',
-      developer: 'GameON Studios',
+      developer: 'GoPlay Studios',
       engine: 'Deterministic Emoji Arithmetic & Logic Engine',
       features: ['40 Progressive Stages', '12 Unique Mathematical Categories', 'Tournament Skill Scoring & Combos', 'Persistent Global Standings'],
     },

@@ -52,7 +52,7 @@ export const EmojiIqHeader: React.FC<EmojiIqHeaderProps> = ({
               onBack();
             }}
             className="h-8 px-2.5 rounded-full bg-white border border-[#6C5CE7]/20 flex items-center gap-1 text-[#241F3D] hover:scale-105 active:scale-95 transition-transform shadow-xs cursor-pointer"
-            title="Return to GameON Tele Portal"
+            title="Return to GoPlay Portal"
             aria-label="Back to Portal"
           >
             <ArrowLeft className="w-4 h-4 text-[#6C5CE7] stroke-[2.5]" />

@@ -878,7 +878,7 @@ export const RoyalWaterSortGame: React.FC<RoyalWaterSortGameProps> = ({
           </div>
 
           <div className="w-full pb-6 text-xs text-slate-400 font-medium">
-            GameON Tele • Royal Puzzle Series
+            GoPlay • Royal Puzzle Series
           </div>
         </div>
       )}

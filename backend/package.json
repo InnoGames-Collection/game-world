@@ -1,7 +1,7 @@
 {
-  "name": "gameon-backend",
+  "name": "goplay-backend",
   "version": "1.0.0",
-  "description": "Tier-0 Enterprise Backend for GAMEON TELE (EthioTelecom / telebirr SuperApp Gaming Portal)",
+  "description": "Tier-0 Enterprise Backend for GoPlay (EthioTelecom / telebirr SuperApp Gaming Portal)",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

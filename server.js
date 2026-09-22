@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3300;
 app.use(express.static(path.join(__dirname, 'dist')));
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', service: 'gameon-web', version: '1.0.0' });
+  res.json({ status: 'healthy', service: 'goplay-web', version: '1.0.0' });
 });
 
 app.get('*', (req, res) => {
@@ -19,5 +19,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 GAMEON TELE Web Portal running on port ${PORT}`);
+  console.log(`🚀 GoPlay Web Portal running on port ${PORT}`);
 });
