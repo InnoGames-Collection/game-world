@@ -8,8 +8,11 @@ set -Eeuo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_DIR"
 
+echo "📥 Pulling latest updates from origin main..."
+git pull origin main
+
 WEB_CANARY="http://127.0.0.1:3300/health"
-ADMIN_CANARY="http://127.0.0.1:3301/health"
+ADMIN_CANARY="http://127.0.0.1:3303/health"
 API_CANARY="http://127.0.0.1:3302/health"
 
 rollback() {
@@ -52,11 +55,14 @@ for i in {1..30}; do
   sleep 1
 done
 
-# 2. Build and Launch API & Web
-docker compose -f docker-compose.server.yml build --pull api
+# 2. Build and Launch API, Admin & Web
+docker compose -f docker-compose.server.yml build api
 docker compose -f docker-compose.server.yml up -d api
 
-docker compose -f docker-compose.server.yml build --pull web
+docker compose -f docker-compose.server.yml build admin
+docker compose -f docker-compose.server.yml up -d admin
+
+docker compose -f docker-compose.server.yml build web
 docker compose -f docker-compose.server.yml up -d web
 
 echo "=============================================================================="
@@ -74,7 +80,7 @@ done
 echo "Probing Admin ($ADMIN_CANARY)..."
 for i in {1..30}; do
   if curl -s -f "$ADMIN_CANARY" | grep -q "healthy"; then
-    echo "✅ Canary 2 Passed: Admin Console Healthy (Port 3301)"
+    echo "✅ Canary 2 Passed: Admin Console Healthy (Port 3303)"
     break
   fi
   sleep 2
